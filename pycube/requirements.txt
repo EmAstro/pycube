@@ -1,0 +1,4 @@
+# Required Packages for pycube
+astropy>=4.2
+matplotlib>=3.3
+numpy>=1.20
