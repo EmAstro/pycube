@@ -1,19 +1,21 @@
 # class set up for MUSE datacubes
+"""Import modules useful for analyzing MUSE data and handling FITS files"""
 import numpy as np
 from pycube.core import background
 from pycube import msgs
 from astropy.io import fits
+from IPython import embed
+import sep
 
-
-class IFU_Cube:
+class IFU_cube:
     def __init__(self, image, primary=None, data=None, stat=None, background_mode=None):
         """
         initalizes data cube FITS file
         Args:
-            image:
-            primary:
-            data:
-            stat:
+            image: FITS image file
+            primary: primary header/data in from_fits_file function
+            data: data header/data in from_fits_file function
+            stat: stat header/data in from_fits_file function
             background_mode:
         """
         self.image = image
@@ -28,9 +30,7 @@ class IFU_Cube:
         self.stat = hdul[2]
 
     def extract_vals(self):
-        bgMedian = np.nanmedian(self.data, 0)
         bgSigma = np.sqrt(np.nanmedian(self.stat, 0))
-        bgMask = np.zeros_like(self.data, 0)
 
     def background(self, mode='median'):
         if mode == 'median':
@@ -40,3 +40,13 @@ class IFU_Cube:
         else:
             raise ValueError
             msgs.warning('Possible values are:\n {}'.format(background.BACKGROUND_MODES))
+        bg_mask = np.zeros_like(self.data, 0)
+        img_backgrd = sep.backgrd(self.data,
+                                   mask = bg_mask,
+                                   bw = 64.,bh = 64.,
+                                   fw = 5., fh = 5.)
+
+    def position(self,ra,dec,z):
+
+
+
