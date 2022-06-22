@@ -7,7 +7,7 @@ from pycube import msgs
 from astropy.io import fits
 from IPython import embed
 import sep
-from matplotlib import patches
+
 
 
 class IFU_cube:
@@ -58,7 +58,3 @@ class IFU_cube:
             raise ValueError
             msgs.warning('Possible values are:\n {}'.format(background.BACKGROUND_MODES))
 
-
-    def position(self, ra, dec, z):
-        ra = self.primary.header['RA']
-        dec = self.primary.header['DEC']

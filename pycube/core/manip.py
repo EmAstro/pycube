@@ -3,7 +3,13 @@ import sep
 from photutils import EllipticalAperture
 
 def find_sigma(array):
-
+    """
+    Simple expression to calculate Sigma quickly. Taking square root of median value.
+    Inputs:
+        array: 2D array of interest to generate sigma value
+    Returns:
+        Sigma value of given 2D array, ignoring NaNs
+    """
     return np.sqrt(np.nanmedian(array))
 
 
@@ -40,16 +46,63 @@ def collapse_cube(datacube, min_lambda, max_lambda):
     col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :])
     return col_cube
 
-# Finish writing. use np.meshgrid <-- Ryan
-def location(datacube, x_position, y_position):
+
+def location(datacube, x_position, y_position,
+             semi_maj = None, semi_min = None,
+             theta = 0, default = 10):
     """
     Inputs:
-        datacube: 2D collapsed image
+        datacube: 2D collapsed image (array)
         x_position: User given x coord of stellar object
         y_position: User given y coord of stellar object
+        semi_maj: Semi-major axis. Set to default if not declared
+        semi_min: Semi-minor axis. Set to 0.6 * default if not declared
+        theta: angle for ellipse rotation around object, defaults to 0
+        default: Pixel scale set to 10 if not specified
     Returns:
-         2D array of x,y position denoted as 1 with all other elements 0
+        Mask of 2D array of with user defined stellar objects
+        denoted as 1 with all other elements 0
     """
+    mask_array = np.zeros_like(datacube)
+    object_position = [x_position,y_position]
+    theta_rad = (theta * np.pi) / 180. #converts angle degrees to radians
+
+    # if no position given..
+    if x_position.size == 0:
+        print("Missing [X] coordinate. No mask created.")
+    elif y_position.size == 0:
+        print("Missing [Y] coordinate. No mask created.")
+    else:
+        # results with default value. Left in place for testing
+        if semi_maj is None:
+            semi_maj = default
+            print("Missing semi-major axis <- setting pixel value to {}".format(semi_maj))
+        if semi_min is None:
+            semi_min = default * 0.6
+            print("Missing semi-minor axis <- setting pixel value to {}".format(semi_min))
+
+        # creates ellipse around given coordinates and generates 2D mask of same shape as datacube
+        object_ellipse = EllipticalAperture(object_position, semi_maj, semi_min, theta_rad)
+        ellipse_mask = object_ellipse.to_mask().to_image(shape = np.shape(datacube))
+        image_mask = mask_array + ellipse_mask
+
+        return image_mask
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Debating implimenting
@@ -118,49 +171,6 @@ def elliptical_mask(datacube,
 
     return imgMsk.astype(int)
 
-
-
-# working on setting this to be user defined.
-def findSources(datacube,statcube,
-                sigDetect=3.501,
-                minArea=16.):
-
-    print("findSources: Starting sources detection")
-    print("findSources: Creating background model")
-
-    bg_median = np.nanmedian(datacube)
-    bg_sigma = find_sigma(statcube)
-    bg_mask = np.zeros_like(datacube)
-
-    bg_mask[(np.abs(datacube - bg_median) > 7. * bg_sigma)] = int(1)
-    img_bg = sep.Background(datacube, mask=bg_mask,
-                            bw=64., bh=64., fw=5., fh=5.)
-
-    img_data_no_bg = np.copy(datacube) - img_bg
-    print("findSources: Searching sources {}-sigma above noise".format(sigDetect))
-    all_objects = sep.extract(img_data_no_bg, sigDetect,
-                            var=statcube,
-                            minarea=minArea,
-                            filter_type='matched',
-                            gain=1.1,
-                            clean=True,
-                            deblend_cont=0.3,
-                            filter_kernel=None)
-    # Sorting sources by flux at the peak
-    index_by_flux = np.argsort(all_objects['peak'])[::-1]
-    all_objects = all_objects[index_by_flux]
-    good_sources = all_objects['flag'] < 1
-    xPix = np.array(all_objects['x'][good_sources])
-    yPix = np.array(all_objects['y'][good_sources])
-    aPix = np.array(all_objects['a'][good_sources])
-    bPix = np.array(all_objects['b'][good_sources])
-    angle = np.array(all_objects['theta'][good_sources]) * 180. / np.pi
-    print("findSources: {} good sources detected".format(np.size(xPix)))
-    # Deleting temporary images to clear up memory
-    del img_bg
-    del img_data_no_bg
-    del good_sources
-    print(xPix, yPix, aPix, bPix, angle, all_objects)
 
 def source(datacube, ra, dec, z):
     """

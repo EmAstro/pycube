@@ -1,6 +1,6 @@
 import numpy as np
 import sep
-
+from pycube.core import manip
 BACKGROUND_MODES = ['median', 'sextractor']
 
 
@@ -33,7 +33,7 @@ def sextractor_background(datacube, sigma):
     """
     datacopy = np.copy(datacube)
     statcopy = np.copy(sigma)
-    s_sigma = np.sqrt(np.nanmedian(statcopy))
+    s_sigma = manip.find_sigma(statcopy)
     bg_median = np.nanmedian(datacopy)
     bg_mask = np.zeros_like(datacopy)
 
