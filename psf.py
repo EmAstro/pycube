@@ -2,13 +2,16 @@ import numpy as np
 from pycube.core import manip
 from pycube.core import background
 import sep
-
+from IPython import embed
 
 # working on setting this to be user defined.
-def find_sources(datacube, statcube,
+def find_sources(datacube, statcube = None,
                  min_lambda = None, max_lambda = None,
+                var_factor = 5.,
                 sig_detect=3.501,
-                min_area=16.):
+                min_area=16.,
+                gain = 1.1,
+                deblend_val = 0.3):
     """
     Automated scanning of given data and identifies good sources.
     If data is in 3D format, function will collapse given wavelength parameters
@@ -17,20 +20,20 @@ def find_sources(datacube, statcube,
         statcube: variance cube (stat). 2D or 3D
         min_lambda: minimum wavelength value to collapse 3D image. Default is None
         max_lambda: maximum wavelength value to collapse 3D image. Default is None
+        var_factor: affects generated variance, if variance is auto-generated from image data. Default is 5.
         sig_detect: minimum signal detected by function. Default 3.5
         min_area: minimum area determined to be a source. Default 16
+        gain:
+        deblend_val: value for sep extractor for deblending of
     Returns:
             #fill in section
     """
     data_background = np.copy(datacube)
+    data_background = manip.check_collapse(data_background, min_lambda, max_lambda)
 
-    if len(datacube) > 2:
-            data_background = manip.collapse_cube(data_background, min_lambda, max_lambda)
-    if len(datacube) < 2:
-            print("Invalid data size. Use data of dimensions 3 or 2.")
-            return None
     if statcube is not None:
         var_background = np.copy(statcube)
+        var_background = manip.check_collapse(var_background, min_lambda, max_lambda)
     else:
         # implemented for data files that are not 3D
         print("No variance detected. Generating from data..")
@@ -38,8 +41,7 @@ def find_sources(datacube, statcube,
         med_background = np.nanmedian(data_background)
         std_image = np.nanstd(data_background - med_background)
         var_background = variance_shell + \
-                         np.nanvar(data_background[(data_background - med_background) < (5. * std_image)])
-
+                         np.nanvar(data_background[(data_background - med_background) < (var_factor * std_image)])
     image_background = background.sextractor_background(data_background, var_background)
     void_background = data_background - image_background
 
@@ -49,9 +51,9 @@ def find_sources(datacube, statcube,
                               var=var_background,
                               minarea=min_area,
                               filter_type='matched',
-                              gain=1.1,
+                              gain=gain,
                               clean=True,
-                              deblend_cont=0.3,
+                              deblend_cont=deblend_val,
                               filter_kernel=None)
     # Sorting sources by flux at the peak
     index_by_flux = np.argsort(all_objects['peak'])[::-1]

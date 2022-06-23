@@ -10,7 +10,7 @@ import sep
 
 
 
-class IFU_cube:
+class IfuCube:
     def __init__(self, image, primary=None, data=None, stat=None, background_mode=None):
         """"
         Inputs:
