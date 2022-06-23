@@ -25,7 +25,7 @@ def get_requirements():
     return install_requires
 
 
-NAME = '[pycube]'
+NAME = 'pycube'
 VERSION = '0.0.0dev'
 AUTHOR = 'Ema'
 
