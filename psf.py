@@ -5,19 +5,49 @@ import sep
 
 
 # working on setting this to be user defined.
-def findSources(datacube, statcube,
-                sigDetect=3.501,
-                minArea=16.):
-    print("findSources: Starting sources detection")
-    print("findSources: Creating background model")
+def find_sources(datacube, statcube,
+                 min_lambda = None, max_lambda = None,
+                sig_detect=3.501,
+                min_area=16.):
+    """
+    Automated scanning of given data and identifies good sources.
+    If data is in 3D format, function will collapse given wavelength parameters
+    Args:
+        datacube: data cube (data). 2D or 3D
+        statcube: variance cube (stat). 2D or 3D
+        min_lambda: minimum wavelength value to collapse 3D image. Default is None
+        max_lambda: maximum wavelength value to collapse 3D image. Default is None
+        sig_detect: minimum signal detected by function. Default 3.5
+        min_area: minimum area determined to be a source. Default 16
+    Returns:
+            #fill in section
+    """
     data_background = np.copy(datacube)
-    image_background = background.sextractor_background(datacube, statcube)
 
+    if len(datacube) > 2:
+            data_background = manip.collapse_cube(data_background, min_lambda, max_lambda)
+    if len(datacube) < 2:
+            print("Invalid data size. Use data of dimensions 3 or 2.")
+            return None
+    if statcube is not None:
+        var_background = np.copy(statcube)
+    else:
+        # implemented for data files that are not 3D
+        print("No variance detected. Generating from data..")
+        variance_shell = np.zeros_like(data_background)
+        med_background = np.nanmedian(data_background)
+        std_image = np.nanstd(data_background - med_background)
+        var_background = variance_shell + \
+                         np.nanvar(data_background[(data_background - med_background) < (5. * std_image)])
+
+    image_background = background.sextractor_background(data_background, var_background)
     void_background = data_background - image_background
-    print("findSources: Searching sources {}-sigma above noise".format(sigDetect))
-    all_objects = sep.extract(void_background, sigDetect,
-                              var=statcube,
-                              minarea=minArea,
+
+    # read documentation and implement source finder.
+    print("findSources: Searching sources {}-sigma above noise".format(sig_detect))
+    all_objects = sep.extract(void_background, sig_detect,
+                              var=var_background,
+                              minarea=min_area,
                               filter_type='matched',
                               gain=1.1,
                               clean=True,
@@ -39,6 +69,11 @@ def findSources(datacube, statcube,
     del good_sources
     return xPix, yPix, aPix, bPix, angle, all_objects
 
+# 6/21 notes to self
+# find sources may not be needed. Location is done however this also returns extra info fed into statBG and subtractBG
+# May also need to change collapse function to return a tuple of the collapsed statCube and dataCube
+# can reassign tuple when fed into other funcs?
+# also need to go back through accessing things in the class
 def statBg(dataCube,
            statCube=None,
            minChannel=None,
@@ -112,7 +147,7 @@ def statBg(dataCube,
     dataImage = manip.collapse_cube(dataCube, minChannel, maxChannel)
     statImage = manip.collapse_cube(statCube, minChannel, maxChannel)
     print("statBg: Searching for sources in the collapsed cube")
-    xPix, yPix, aPix, bPix, angle, allSources = manip.location(dataImage, statImage,
+    xPix, yPix, aPix, bPix, angle, allSourcesv = manip.location(dataImage, statImage,
                                                                     sigDetect=sigSourceDetection,
                                                                     minArea=minSourceArea)
 

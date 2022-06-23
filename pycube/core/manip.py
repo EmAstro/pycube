@@ -18,7 +18,7 @@ def convert_to_wave(datacube, channels):
     return np.array(wave, dtype=float)
 
 
-def collapse_cube(datacube, min_lambda, max_lambda):
+def collapse_cube(datacube, min_lambda = None, max_lambda = None):
     """
     Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
     Inputs:
@@ -34,20 +34,18 @@ def collapse_cube(datacube, min_lambda, max_lambda):
         return None
     datacopy = np.copy(datacube)
     z_max, y_max, x_max = np.shape(datacopy)
-
     # Checks and resets if outside boundaries of z
-    if max_lambda > z_max:
+    if max_lambda > z_max or max_lambda is None:
         max_lambda = z_max
-        print("Exceed wavelength in datacube. Max value is set to {}".format(int(z_max)))
-    if min_lambda < 0:
+        print("Exceeded / unspecified wavelength in data cube. Max value is set to {}".format(int(z_max)))
+    if min_lambda < 0 or min_lambda is None:
         min_lambda = 0
-        print("Invalid wavelength value for min. Min value is set to 0")
+        print("Invalid / unspecified minimum wavelength. Min value is set to 0")
 
     col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :])
     return col_cube
 
-
-def location(datacube, x_position, y_position,
+def elliptical_mask(datacube, x_position, y_position,
              semi_maj = None, semi_min = None,
              theta = 0, default = 10):
     """
@@ -88,21 +86,18 @@ def location(datacube, x_position, y_position,
 
         return image_mask
 
+def ra_dec_locate(datacube, ra, dec, theta = 0):
+    """
 
+    Inputs:
+ # CRVAL1 * (xposition - CDELTA1)
+ #
+    Returns:
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+    """
+    masked_array = np.zeros_like(datacube)
+    theta_rad = (theta * np.pi) / 180. #converts angle degrees to radians
+    for pixel in datacube:
 
 
 # Debating implimenting
@@ -112,50 +107,11 @@ def elliptical_mask(datacube,
                         aObj=5.,
                         bObj=5.,
                         thetaObj=0.):
-    """Returning a mask where sources are marked with 1 and background
-    with 0. It is just the superposition of several elliptical masks
-    centered at xObj and yObj with axis aObj and bObj.
-    Parameters
-    ----------
-    imgData : np.array
-        data in a 2D array. The mask will have the same size
-        of this.
-    xObj : np.array
-        x-location of the sources in pixels
-    yObj : np.array
-        y-location of the sources in pixels
-    aObj
-        semi-major axis in pixel (i.e. the radius if
-        aObj=bObj)
-    bObj
-        semi-minor axis in pixel (i.e. the radius if
-        aObj=bObj)
-    thetaObj
-        angle wrt the x-axis in degrees
-    Returns
-    -------
-    imgMsk : np.array
-        mask where sources are marked with 1 and background with 0.
-        It has the same dimensions of the input imgData
-    """
+# 6/21 notes to self
+# Multi object designation below.. could impliment as a list fed in and returned as a dictionary?
+# assign array of object position with respective object # that could be assigned?
+# if yes ^ impliment above in location function.
 
-
-    # converting degrees to radians
-    # ToDo: double check that this is the correct input for EllipticalAperture
-    thetaObj_rad = thetaObj * np.pi / 180.  # Converting degrees to radian
-
-    # Creating empty mask
-    imgMsk = np.zeros_like(imgData)
-
-    # Filling the mask
-    if np.int(xObj.size) == 0:
-        print("ellipticalMask: no mask created")
-    elif np.int(xObj.size) == 1:
-        posObj = [xObj, yObj]
-    ellObj = EllipticalAperture(posObj, aObj, bObj, theta=thetaObj_rad)
-    ellMsk = ellObj.to_mask(method='center')[0].to_image(shape=imgData.shape)
-    imgMsk = imgMsk + ellMsk
-    else:
     for idxObj in range(0, len(xObj)):
         posObj = [xObj[idxObj], yObj[idxObj]]
     ellObj = EllipticalAperture(posObj, aObj[idxObj], bObj[idxObj], theta=thetaObj_rad[idxObj])
