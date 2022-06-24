@@ -2,6 +2,7 @@ import numpy as np
 import sep
 from photutils import EllipticalAperture
 
+
 def find_sigma(array):
     """
     Simple expression to calculate Sigma quickly. Taking square root of median value of an array of values.
@@ -78,25 +79,23 @@ def location(datacube, x_position, y_position,
     theta_rad = (theta * np.pi) / 180. #converts angle degrees to radians
 
     # if no position given..
-    if x_position.size == 0:
-        print("Missing [X] coordinate. No mask created.")
-    elif y_position.size == 0:
-        print("Missing [Y] coordinate. No mask created.")
-    else:
-        # results with default value. Left in place for testing
-        if semi_maj is None:
-            semi_maj = default
-            print("Missing semi-major axis <- setting pixel value to {}".format(semi_maj))
-        if semi_min is None:
-            semi_min = default * 0.6
-            print("Missing semi-minor axis <- setting pixel value to {}".format(semi_min))
+    # results with default value. Left in place for testing
+    if semi_maj is None:
+        semi_maj = default
+        print("Missing semi-major axis <- setting pixel value to {}".format(semi_maj))
+    if semi_min is None:
+        semi_min = default * 0.6
+        print("Missing semi-minor axis <- setting pixel value to {}".format(semi_min))
 
-        # creates ellipse around given coordinates and generates 2D mask of same shape as datacube
-        object_ellipse = EllipticalAperture(object_position, semi_maj, semi_min, theta_rad)
-        ellipse_mask = object_ellipse.to_mask().to_image(shape = np.shape(datacube))
-        image_mask = mask_array + ellipse_mask
+    # creates ellipse around given coordinates and generates 2D mask of same shape as datacube
+    object_ellipse = EllipticalAperture(object_position, semi_maj, semi_min, theta_rad)
+    ellipse_mask = object_ellipse.to_mask().to_image(shape = np.shape(datacube))
+    image_mask = mask_array + ellipse_mask
 
-        return image_mask
+    return image_mask
+
+
+
 
 def ra_dec_location(datacube, ra, dec, theta = 0):
     """
@@ -109,7 +108,7 @@ def ra_dec_location(datacube, ra, dec, theta = 0):
     """
     masked_array = np.zeros_like(datacube)
     theta_rad = (theta * np.pi) / 180. #converts angle degrees to radians
-    for pixel in datacube:
+    #for pixel in datacube:
 
 
 # Debating implimenting
@@ -139,6 +138,7 @@ def elliptical_mask(datacube,
 
     return imgMsk.astype(int)
 
+# not needed since making image class
 def check_collapse(datacube, min_lambda, max_lambda):
     """
     Simple function that checks dimensions of data and will collapse if it is a 3D array.

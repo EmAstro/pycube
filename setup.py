@@ -28,7 +28,7 @@ def get_requirements():
 NAME = '[pycube]'
 VERSION = '0.0.0dev'
 AUTHOR = 'Ryan'
-#changed
+
 
 def run_setup(scripts, packages, install_requires):
     r"""Run the setup
@@ -74,4 +74,4 @@ if __name__ == '__main__':
     # Collate the dependencies based on the system text file
     install_requires = get_requirements()
     # Run setup from setuptools
-run_setup(scripts, packages, install_requires)
+    run_setup(scripts, packages, install_requires)

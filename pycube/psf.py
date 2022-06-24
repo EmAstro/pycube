@@ -8,18 +8,18 @@ from IPython import embed
 def find_sources(datacube, statcube = None,
                  min_lambda = None, max_lambda = None,
                 var_factor = 5.,
-                sig_detect=3.501,
+                sig_detect = 3.501,
                 min_area=16.,
-                gain = 1.1,
+                gain = 1.1, # get it from the header
                 deblend_val = 0.3):
     """
     Automated scanning of given data and identifies good sources.
     If data is in 3D format, function will collapse given wavelength parameters
-    Args:
+    Inputs:
         datacube: data cube (data). 2D or 3D
         statcube: variance cube (stat). 2D or 3D
-        min_lambda: minimum wavelength value to collapse 3D image. Default is None
-        max_lambda: maximum wavelength value to collapse 3D image. Default is None
+        min_lambda (float): minimum wavelength value to collapse 3D image. Default is None
+        max_lambda (float): maximum wavelength value to collapse 3D image. Default is None
         var_factor: affects generated variance, if variance is auto-generated from image data. Default is 5.
         sig_detect: minimum signal detected by function. Default 3.5
         min_area: minimum area determined to be a source. Default 16

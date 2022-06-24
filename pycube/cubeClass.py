@@ -3,6 +3,7 @@
 import numpy as np
 from pycube.core import background
 from pycube.core import manip
+from pycube import psf
 from pycube import msgs
 from astropy.io import fits
 from IPython import embed
@@ -22,8 +23,9 @@ class IfuCube:
         self.primary = primary
         self.data = data
         self.stat = stat
-
-    def from_fits_file(self, fits_filename):
+        self.source_mask = None
+        self.background = None
+    def from_fits_file(self):
         """
         Opens .FITS file and separates information by primary, data, and stat.
         Inputs:
@@ -31,11 +33,30 @@ class IfuCube:
         Assigns:
             Primary, data, stat, and dimensions of array.
         """
-        hdul = fits.open(fits_filename)
+        hdul = fits.open(self.image)
         self.primary = hdul[0]
         self.data = hdul[1]
         self.stat = hdul[2]
         self.z_max, self.y_max, self.x_max = np.shape(self.data.data)
+
+    def get_background(self, mode, min_lambda, max_lambda):
+
+        datacopy = self.data.data
+        statcopy = self.stat.data
+        stat_2_d = manip.collapse_cube(statcopy, min_lambda, max_lambda)
+        data_2_d = manip.collapse_cube(datacopy, min_lambda, max_lambda)
+        x_pos, y_pos, semi_maj, semi_min, theta, all_objects = psf.find_sources(data_2_d, stat_2_d, min_lambda, max_lambda)
+        void_mask = np.zeros_like(data_2_d)
+        source_mask = manip.location(data_2_d, x_pos, y_pos, semi_min, semi_maj, theta)
+
+
+
+
+
+
+
+
+        return(image_mask, background_cube)
 
     def extract_vals(self):
         bg_sigma = np.sqrt(np.nanmedian(self.stat.data))
@@ -44,10 +65,8 @@ class IfuCube:
         bg_scale_cor = bg_variance / bg_average
         bg_mask = np.zeros_like(self.data.data)
         self.channels = np.arange(0, self.z_max, 1, dtype=int)
+        print(bg_sigma, bg_variance, bg_average, bg_scale_cor, bg_mask)
 
-    def convert_to_wave(self, channels):
-        wave = self.data.header['CRVAL3'] + (np.array(channels) * self.data.header['CD3_3'])
-        self.wave_cube = np.array(wave, dtype=float)
 
     def background(self, mode='median'):
         if mode == 'median':
