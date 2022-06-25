@@ -155,28 +155,6 @@ def ra_dec_location(datacube, ra, dec, theta=0):
     # for pixel in datacube:
 
 
-# Debating implimenting
-def elliptical_mask(datacube,
-                    xObj,
-                    yObj,
-                    aObj=5.,
-                    bObj=5.,
-                    thetaObj=0.):
-    for idxObj in range(0, len(xObj)):
-        posObj = [xObj[idxObj], yObj[idxObj]]
-    ellObj = EllipticalAperture(posObj, aObj[idxObj], bObj[idxObj], theta=thetaObj_rad[idxObj])
-    ellMsk = ellObj.to_mask(method='center')[0].to_image(shape=imgData.shape)
-    imgMsk = imgMsk + ellMsk
-
-    imgMsk[imgMsk > 0.] = 1
-    # Deleting temporary images to clear up memory
-    if np.int(xObj.size) > 0:
-        del posObj
-    del ellObj
-    del ellMsk
-
-    return imgMsk.astype(int)
-
 
 # not needed since making image class
 def check_collapse(datacube, min_lambda, max_lambda):
