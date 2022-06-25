@@ -54,8 +54,7 @@ class IfuCube:
         statcopy = self.stat.data
         stat_2_d = manip.collapse_cube(statcopy, min_lambda, max_lambda)
         data_2_d = manip.collapse_cube(datacopy, min_lambda, max_lambda)
-        x_pos, y_pos, semi_maj, semi_min, theta, all_objects = psf.find_sources(data_2_d, stat_2_d, min_lambda,
-                                                                                max_lambda)
+        x_pos, y_pos, semi_maj, semi_min, theta, all_objects = psf.find_sources(data_2_d, stat_2_d, min_lambda, max_lambda)
         void_mask = np.zeros_like(data_2_d)
         source_mask = manip.location(data_2_d, x_pos, y_pos, semi_min, semi_maj, theta)
 
