@@ -155,15 +155,16 @@ def statBg(dataCube,
                                                              min_area=minSourceArea)
 
     print("statBg: Detected {} sources".format(len(xPix)))
-
     print("statBg: Masking sources")
     maskBg2D = np.zeros_like(data_image)
-    print(xPix)
-    skyMask = manip.location(data_image, xPix, yPix,
+
+
+    skyMask = manip.location(data_image, x_position=xPix, y_position=yPix,
                              semi_maj=sizeSourceMask * aPix,
                              semi_min=sizeSourceMask * bPix,
                              theta=angle)
     maskBg2D[(skyMask == 1)] = 1
+
 
     print("statBg: Masking Edges")
     # removing edges. This mask is 0 if it is a good pixel, 1 if it is a
@@ -175,6 +176,7 @@ def statBg(dataCube,
     if maskXY is not None:
         print("statBg: Masking spatial pixels from input maskXY")
         maskBg2D[(maskXY == 1)] = 1
+
 
     print("statBg: Performing b/g statistic")
     bgCube = np.copy(dataCube)
@@ -189,6 +191,7 @@ def statBg(dataCube,
     if debug:
         print("statBg: Saving debug image on {}_BgRegion.pdf".format(output))
         bgDataImage = manip.collapse_cube(datacopy, min_lambda, max_lambda)
+        bgDataImage[(maskBg2D == 1)] = np.nan
         bgStatImage = manip.collapse_cube(statcopy, min_lambda, max_lambda)
         tempBgFlux = np.nanmean(bgDataImage)
         tempBgStd = np.nanstd(bgDataImage)

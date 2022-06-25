@@ -109,7 +109,6 @@ def location(datacube, x_position=None, y_position=None,
     mask_shape = np.shape(datacube)
     x_mask, y_mask = mask_shape
     object_position = (x_position, y_position)
-
     # if no position given..
     # results with default value. Left in place for testing
     if semi_maj is None:
@@ -127,7 +126,7 @@ def location(datacube, x_position=None, y_position=None,
         theta_rad = (theta * np.pi) / 180.  # converts angle degrees to radians
         object_ellipse = EllipticalAperture(object_position, semi_maj, semi_min, theta_rad)
         ellipse_mask = object_ellipse.to_mask(method="center").to_image(shape=(x_mask, y_mask))
-        image_mask = mask_array + ellipse_mask
+        mask_array += ellipse_mask
 
     else:
         print("location: multiple sources specified, iterating through list")
@@ -136,9 +135,9 @@ def location(datacube, x_position=None, y_position=None,
             theta_rad = (theta[index] * np.pi) / 180.  # converts angle degrees to radians
             object_ellipse = EllipticalAperture(object_position, semi_maj[index], semi_min[index], theta_rad)
             ellipse_mask = object_ellipse.to_mask(method="center").to_image(shape=(x_mask, y_mask))
-            image_mask = mask_array + ellipse_mask
+            mask_array += ellipse_mask
 
-    return image_mask
+    return np.array((mask_array > 0.), dtype=int)
 
 
 def ra_dec_location(datacube, ra, dec, theta=0):

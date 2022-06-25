@@ -11,7 +11,7 @@ import sep
 
 
 class IfuCube:
-    def __init__(self, image, primary=None, data=None, stat=None, background_mode=None):
+    def __init__(self, image, object=None, primary=None, data=None, stat=None, background_mode=None):
         """"
         Inputs:
             image: raw FITS file
@@ -20,6 +20,7 @@ class IfuCube:
         """
         self.image = image
         self.primary = primary
+        self.object = object
         self.data = data
         self.stat = stat
         self.source_mask = None
@@ -32,6 +33,7 @@ class IfuCube:
     @primary.setter
     def primary(self, primary):
         self._primary = primary
+        self._object = primary.header['OBJECT']
 
     def from_fits_file(self):
         """
