@@ -10,7 +10,6 @@ from IPython import embed
 import sep
 
 
-
 class IfuCube:
     def __init__(self, image, primary=None, data=None, stat=None, background_mode=None):
         """"
@@ -25,6 +24,15 @@ class IfuCube:
         self.stat = stat
         self.source_mask = None
         self.background = None
+
+    @property
+    def primary(self):
+        return self._primary
+
+    @primary.setter
+    def primary(self, primary):
+        self._primary = primary
+
     def from_fits_file(self):
         """
         Opens .FITS file and separates information by primary, data, and stat.
@@ -37,6 +45,7 @@ class IfuCube:
         self.primary = hdul[0]
         self.data = hdul[1]
         self.stat = hdul[2]
+        # Ema: this will not work because the attributes are not set in the __init__
         self.z_max, self.y_max, self.x_max = np.shape(self.data.data)
 
     def get_background(self, mode, min_lambda, max_lambda):
@@ -45,7 +54,8 @@ class IfuCube:
         statcopy = self.stat.data
         stat_2_d = manip.collapse_cube(statcopy, min_lambda, max_lambda)
         data_2_d = manip.collapse_cube(datacopy, min_lambda, max_lambda)
-        x_pos, y_pos, semi_maj, semi_min, theta, all_objects = psf.find_sources(data_2_d, stat_2_d, min_lambda, max_lambda)
+        x_pos, y_pos, semi_maj, semi_min, theta, all_objects = psf.find_sources(data_2_d, stat_2_d, min_lambda,
+                                                                                max_lambda)
         void_mask = np.zeros_like(data_2_d)
         source_mask = manip.location(data_2_d, x_pos, y_pos, semi_min, semi_maj, theta)
 
