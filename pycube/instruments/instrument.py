@@ -19,3 +19,10 @@ class Instrument:
         self.data_extension = None
         self.sigma_extension = None
 
+    @property
+    def data_extension(self):
+        return self._data_extension
+
+    @data_extension.setter
+    def data_extension(self, data_extension):
+        self._data_extension = data_extension
