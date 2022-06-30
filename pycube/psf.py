@@ -20,17 +20,30 @@ def find_sources(datacube, statcube=None,
     Automated scanning of given data and identifies good sources.
     If data is in 3D format, function will collapse given wavelength parameters
     Inputs:
-        datacube: data cube (data). 2D or 3D
-        statcube: variance cube (stat). 2D or 3D
-        min_lambda (float): minimum wavelength value to collapse 3D image. Default is None
-        max_lambda (float): maximum wavelength value to collapse 3D image. Default is None
-        var_factor: affects generated variance, if variance is auto-generated from image data. Default is 5.
-        sig_detect: minimum signal detected by function. Default 3.5
-        min_area: minimum area determined to be a source. Default 16
+        datacube (array):
+            data cube. 2D or 3D
+        statcube (array):
+            variance cube. 2D or 3D
+        min_lambda (float):
+            minimum wavelength value to collapse 3D image. Default is None
+        max_lambda (float):
+            maximum wavelength value to collapse 3D image. Default is None
+        var_factor (int / float):
+            affects generated variance, if variance is auto-generated from image data. Default 5.
+        sig_detect (int / float):
+            minimum signal detected by function. Default 3.5
+        min_area (int / float):
+            minimum area determined to be a source. Default 16
         gain:
-        deblend_val: value for sep extractor for deblending of
+        deblend_val:
+            value for sep extractor for deblending of
     Returns:
-            #fill in section
+        xPix (np.array):
+        yPix (np.array):
+        aPix (np.array):
+        bPix (np.array):
+        angle (np.array):
+        all_objects (np.array):
     """
     data_background = np.copy(datacube)
     data_background = manip.check_collapse(data_background, min_lambda, max_lambda)
@@ -101,33 +114,33 @@ def statBg(dataCube,
             data in a 3D array
         statCube : np.array
             variance in a 3D array
-        min_lambda : np.int
+        min_lambda : int
             min channel to create the image where to detect sources
-        max_lambda : np.int
+        max_lambda : int
             max channel to create the image where to detect sources
         maskZ
             when 1 (or True), this is a channel to be removed
         maskXY
             when 1 (or True), this spatial pixel will remove from
             the estimate of the b/g values
-        sigSourceDetection : np.float
+        sigSourceDetection : float
             detection sigma threshold for sources in the
             collapsed cube. Defaults is 5.0
-        minSourceArea : np.float
+        minSourceArea : float
             min area for source detection in the collapsed
             cube. Default is 16.
-        sizeSourceMask : np.float
+        sizeSourceMask : float
             for each source, the model will be created in an elliptical
             aperture with size sizeSourceMask time the semi-minor and semi-major
             axis of the detection. Default is 6.
-        maxSourceSize : np.float
+        maxSourceSize : float
             sources with semi-major or semi-minor axes larger than this
             value will not be considered in the foreground source model.
             Default is 50.
-        maxSourceEll : np.float
+        maxSourceEll : float
             sources with ellipticity larger than this value will not be
             considered in the foreground source model. Default is 0.9.
-        edges : np.int
+        edges : int
             frame size removed to avoid problems related to the edge
             of the image
         output : string
@@ -187,11 +200,11 @@ def statBg(dataCube,
                                                   np.nanmedian(bgCube, axis=(1, 2)), \
                                                   np.nanvar(bgCube, axis=(1, 2)), \
                                                   np.count_nonzero(~np.isnan(bgCube), axis=(1, 2))
+    bgDataImage = manip.collapse_cube(datacopy, min_lambda, max_lambda)
+    bgDataImage[(maskBg2D == 1)] = np.nan
 
     if debug:
         print("statBg: Saving debug image on {}_BgRegion.pdf".format(output))
-        bgDataImage = manip.collapse_cube(datacopy, min_lambda, max_lambda)
-        bgDataImage[(maskBg2D == 1)] = np.nan
         bgStatImage = manip.collapse_cube(statcopy, min_lambda, max_lambda)
         tempBgFlux = np.nanmean(bgDataImage)
         tempBgStd = np.nanstd(bgDataImage)
@@ -226,7 +239,6 @@ def statBg(dataCube,
         if showDebug:
             plt.show()
         plt.close()
-        del bgDataImage
         del bgStatImage
 
     del data_image
@@ -238,11 +250,8 @@ def statBg(dataCube,
     del allSources
 
     gc.collect()
-    print("maskBg2D")
-    plt.imshow(maskBg2D, origin="lower")
-    plt.colorbar()
-    plt.show()
-    return averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D
+
+    return averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage
 
 
 def subtractBg(dataCube,
@@ -262,12 +271,12 @@ def subtractBg(dataCube,
                showDebug=False):
     """ This macro remove residual background in the cubes and fix the variance
     vector after masking sources. Sources are detected in an image created by
-    collapsing the cube between minChannel and maxChannel (considering maskZ as
+    collapsing the cube between min_lambda and max_lambda (considering maskZ as
     mask for bad channels). If statCube is none, it will be created and for each
     channel, the variance of the background will be used.
 
    Inputs:
-        dataCube : np.array
+        dataCube(np.array):
             data in a 3D array
         statCube : np.array
             variance in a 3D array
@@ -319,7 +328,7 @@ def subtractBg(dataCube,
     print("subtractBg: Starting the procedure to subtract the background")
 
     # Getting spectrum of the background
-    averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D = statBg(dataCube,
+    averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage = statBg(dataCube,
                                                                    statCube=statCube,
                                                                    min_lambda=min_lambda,
                                                                    max_lambda=max_lambda,
@@ -334,16 +343,16 @@ def subtractBg(dataCube,
                                                                    output=output,
                                                                    debug=debug,
                                                                    showDebug=showDebug)
+
     print("subtractBg: Subtracting background from dataCube")
     dataCubeBg = np.copy(dataCube)
     z_max, y_max, x_max = np.shape(dataCube)
     for channel in range(0, z_max):
-        dataCubeBg[channel, :, :] = dataCube[channel, :, :] - medianBg[channel]
+        dataCubeBg[channel, :, :] -= medianBg[channel]
 
     if statCube is None:
         print("subtractBg: Creating statCube with variance inferred from background")
         statCubeBg = np.copy(dataCube)
-        z_max, y_max, x_max = np.shape(dataCube)
         for channel in range(0, z_max):
             statCubeBg[channel, :, :] = varBg[channel]
     else:
@@ -359,9 +368,8 @@ def subtractBg(dataCube,
         # Rescaling cube variance
         scaleFactor = varBg / averageStatBg
         statCubeBg = np.copy(statCube)
-        z_max, y_max, x_max = np.shape(statCubeBg)
         for channel in range(0, z_max):
-            statCubeBg[channel, :, :] = statCube[channel, :, :] * scaleFactor[channel]
+            statCubeBg[channel, :, :] *= scaleFactor[channel]
         print("subtractBg: The average correction factor for variance is {:.5f}".format(np.average(scaleFactor)))
         if debug:
             manip.nicePlot()
@@ -391,4 +399,4 @@ def subtractBg(dataCube,
             plt.close()
 
     gc.collect()
-    return dataCubeBg, statCubeBg, averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D
+    return dataCubeBg, statCubeBg, averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage

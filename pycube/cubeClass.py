@@ -8,10 +8,11 @@ from pycube import msgs
 from astropy.io import fits
 from IPython import embed
 import sep
+import matplotlib.pyplot as plt
 
 
 class IfuCube:
-    def __init__(self, image, object=None, primary=None, data=None, stat=None, background_mode=None):
+    def __init__(self, image, object=None, primary=None, data=None, stat=None, hdul=None, background_mode=None):
         """"
         Inputs:
             image: raw FITS file
@@ -19,12 +20,14 @@ class IfuCube:
         initializes data cube FITS file for IFU_cube class
         """
         self.image = image
-        self.primary = primary
         self.object = object
+        self.primary = primary
         self.data = data
         self.stat = stat
         self.source_mask = None
-        self.background = None
+        self.source_background = None
+        self.hdul = hdul
+        self.background_mode = background_mode
 
     @property
     def primary(self):
@@ -33,7 +36,7 @@ class IfuCube:
     @primary.setter
     def primary(self, primary):
         self._primary = primary
-        self._object = primary.header['OBJECT']
+        # self._object = primary.header['OBJECT']
 
     def from_fits_file(self):
         """
@@ -41,50 +44,65 @@ class IfuCube:
         Inputs:
             fits_filename: .FITS file to assign self parameter to.
         Assigns:
-            Primary, data, stat, and dimensions of array.
+            hdul to open data file
+            Primary row of file
+            Data row of file
+            Stat (variance) row of file
         """
-        hdul = fits.open(self.image)
-        self.primary = hdul[0]
-        self.data = hdul[1]
-        self.stat = hdul[2]
-        # Ema: this will not work because the attributes are not set in the __init__
-        self.z_max, self.y_max, self.x_max = np.shape(self.data.data)
+        self.hdul = fits.open(self.image)
+        self.primary = self.hdul[0]
+        self.data = self.hdul[1]
+        self.stat = self.hdul[2]
 
-    def get_background(self, mode, min_lambda, max_lambda):
+    def get_background(self, min_lambda=None, max_lambda=None, maskZ=None, maskXY=None,
+                       sigSourceDetection=5.0, minSourceArea=16., sizeSourceMask=6., maxSourceSize=50.,
+                       maxSourceEll=0.9, edges=60, output='Object', debug=False,
+                       showDebug=False):
+        """
+          Uses statBg from psf.py to generate the source mask and the background image with sources removed and appends
+          to self.hdul for easy access
+        Args:
+            min_lambda:
+            max_lambda:
+            maskZ:
+            maskXY:
+            sigSourceDetection:
+            minSourceArea:
+            sizeSourceMask:
+            maxSourceSize:
+            maxSourceEll:
+            edges:
+            output:
+            debug:
+            showDebug:
+
+        Returns:
+
+        """
 
         datacopy = self.data.data
         statcopy = self.stat.data
-        stat_2_d = manip.collapse_cube(statcopy, min_lambda, max_lambda)
-        data_2_d = manip.collapse_cube(datacopy, min_lambda, max_lambda)
-        x_pos, y_pos, semi_maj, semi_min, theta, all_objects = psf.find_sources(data_2_d, stat_2_d, min_lambda, max_lambda)
-        void_mask = np.zeros_like(data_2_d)
-        source_mask = manip.location(data_2_d, x_pos, y_pos, semi_min, semi_maj, theta)
+        average_bg, median_bg, std_bg, var_bg,\
+        pixels_bg, mask_bg_2D, bg_data_image = psf.statBg(dataCube=datacopy, statCube=statcopy,
+                                                    min_lambda=min_lambda, max_lambda=max_lambda,
+                                                    maskZ=maskZ, maskXY=maskXY,
+                                                    sigSourceDetection=sigSourceDetection, minSourceArea=minSourceArea,
+                                                    sizeSourceMask=sizeSourceMask, maxSourceSize=maxSourceSize,
+                                                    maxSourceEll=maxSourceEll, edges=edges,
+                                                    output=output, debug=debug, showDebug=showDebug)
 
-
-
-
-
-
-
-
-        return(image_mask, background_cube)
-
-    def extract_vals(self):
-        bg_sigma = np.sqrt(np.nanmedian(self.stat.data))
-        bg_variance = np.nanvar(self.data.data)
-        bg_average = np.nanmean(self.stat.data)
-        bg_scale_cor = bg_variance / bg_average
-        bg_mask = np.zeros_like(self.data.data)
-        self.channels = np.arange(0, self.z_max, 1, dtype=int)
-        print(bg_sigma, bg_variance, bg_average, bg_scale_cor, bg_mask)
+        self.source_mask = fits.ImageHDU(data=mask_bg_2D, name='MASK')
+        self.source_background = fits.ImageHDU(data=bg_data_image, name='BACKGROUND')
+        self.hdul = self.hdul[:3] # removes MASK and BACKGROUND if function ran in succession
+        self.hdul.append(self.source_mask)
+        self.hdul.append(self.source_background)
 
 
     def background(self, mode='median'):
         if mode == 'median':
-            backgrd = background.median_background(self.data.data)
+            self.background_mode = background.median_background(self.data.data)
         elif mode == 'sextractor':
-            backgrd = background.sextractor_background(self.data.data,self.stat.data)
+            self.background_mode = background.sextractor_background(self.data.data, self.stat.data)
         else:
             raise ValueError
             msgs.warning('Possible values are:\n {}'.format(background.BACKGROUND_MODES))
-

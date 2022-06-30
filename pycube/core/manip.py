@@ -36,41 +36,63 @@ def nicePlot():
     plt.rcParams["legend.frameon"] = True
     plt.rcParams["legend.handletextpad"] = 1
 
-def find_sigma(array):
+def find_sigma(data):
     """
     Simple expression to calculate Sigma quickly. Taking square root of median value of an array of values.
     Inputs:
-        array: 2D array of interest to generate sigma value
+        data(np.array):
+            2D array of interest to generate sigma value
     Returns:
-        Sigma value of given 2D array, ignoring NaNs
+            Sigma value of given 2D array, ignoring NaNs
     """
-    return np.sqrt(np.nanmedian(array))
+    return np.sqrt(np.nanmedian(data))
 
 
-def convert_to_wave(datacube, channels):
+def convert_to_wave(datacube, header, channels):
     """
-    Converts channel values in 3D MUSE data into wavelength values.
+    Converts channel values in 3D MUSE data into wavelength values along z axis (wavelength).
     Specifically works with .FITS formatted MUSE data.
     Utilizes header vals ('CRVAL3' and 'CD3_3')
     Inputs:
-        datacube: Fits data
-        channels: channel of cube desired to convert
+        datacube(np.array):
+            .FITS datacube
     Returns:
-        array of wavelength values for given channel
+        (array) of wavelength values for given channel
     """
-    wave = datacube.header['CRVAL3'] + (np.array(channels) * datacube.header['CD3_3'])
-    return np.array(wave, dtype=float)
+    z_max, y_max, x_max = np.shape(datacube)
+    channels = np.arange(0, z_max, 1, int)
+    wave = header['CRVAL3'] + (np.array(channels) * header['CD3_3'])
+    return np.array(wave, float)
 
+def convert_to_channel(datacube):
+    """
+    Converts wavelength values in 3D MUSE data into channel value along z axis
+    Specifically works with .FITS formatted MUSE data.
+
+    Inputs:
+        datacube(np.array): .FITS datacube
+    Returns:
+        (array) of channel values for given wavelength
+    """
+    data_headers = datacube.header
+    z_max, y_max, x_max = np.shape(datacube)
+    wavelength_cube = np.arange(0, len(datacube), 1, int)
+    channel = wavelength_cube - data_headers['CRVAL3'] / data_headers['CD3_3']
+    return np.array(channel, float)
 
 def collapse_cube(datacube, min_lambda=None, max_lambda=None):
     """
     Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
     Inputs:
-        datacube: 3D data file
-        min_lambda: minimum wavelength
-        max_lambda: maximum wavelength
+        datacube(np.array):
+            3D data file
+        min_lambda(int):
+            minimum wavelength
+        max_lambda(int):
+            maximum wavelength
     Returns:
-        col_cube: Condensed 2D array of 3D file.
+        col_cube(np.array):
+            Condensed 2D array of 3D file.
     """
     datacopy = np.copy(datacube)
     z_max, y_max, x_max = np.shape(datacopy)
@@ -94,13 +116,20 @@ def location(datacube, x_position=None, y_position=None,
     User input function to create elliptical mask of given coordinates for source in image.
 
     Inputs:
-        datacube: 2D collapsed image (array)
-        x_position: User given x coord of stellar object
-        y_position: User given y coord of stellar object
-        semi_maj: Semi-major axis. Set to default if not declared
-        semi_min: Semi-minor axis. Set to 0.6 * default if not declared
-        theta: angle for ellipse rotation around object, defaults to 0
-        default: Pixel scale set to 10 if not declared
+        datacube(np.array):
+            2D collapsed image
+        x_position(int / float):
+            User given x coord of stellar object
+        y_position(int / float):
+            User given y coord of stellar object
+        semi_maj(int / float):
+            Semi-major axis. Set to default if not declared
+        semi_min(int / float):
+            Semi-minor axis. default: 0.6 * default
+        theta(int / float):
+            angle for ellipse rotation around object, default 0
+        default(int):
+            Pixel scale set to 10 if not declared
     Returns:
         Mask of 2D array of with user defined stellar objects
         denoted as 1 with all other elements 0
@@ -139,32 +168,29 @@ def location(datacube, x_position=None, y_position=None,
 
     return np.array((mask_array > 0.), dtype=int)
 
-
+"""
 def ra_dec_location(datacube, ra, dec, theta=0):
-    """
 
-    Inputs:
- # CRVAL1 * (xposition - CDELTA1)
- #
-    Returns:
+    CRVAL1 * (xposition - CDELTA1)
 
-    """
     masked_array = np.zeros_like(datacube)
     theta_rad = (theta * np.pi) / 180.  # converts angle degrees to radians
-    # for pixel in datacube:
+    for pixel in datacube:
+"""
 
-
-
-# not needed since making image class
 def check_collapse(datacube, min_lambda, max_lambda):
     """
     Simple function that checks dimensions of data and will collapse if it is a 3D array.
     Inputs:
-        datacube: data to check
-        min_lambda: minimum z-range to collapse
-        max_lambda: maximum z-range to collapse
+        datacube(np.array):
+            2D or 3D array
+        min_lambda(int):
+            minimum z-range to collapse
+        max_lambda(int):
+            maximum z-range to collapse
     Returns:
-        collapsed 2D data array
+        datacopy(np.array):
+            collapsed 2D data array
     """
     datacopy = np.copy(datacube)
     if datacopy.ndim > 2:
