@@ -106,3 +106,4 @@ class IfuCube:
         else:
             raise ValueError
             msgs.warning('Possible values are:\n {}'.format(background.BACKGROUND_MODES))
+        embed()

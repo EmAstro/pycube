@@ -1,7 +1,23 @@
 import numpy as np
 import sep
-from photutils import EllipticalAperture
+import astropy
+
 import matplotlib.pyplot as plt
+from IPython import embed
+
+from astropy.stats import sigma_clipped_stats
+import astropy.coordinates as coord
+import astropy.units as u
+
+from photutils import CircularAperture
+from photutils import CircularAnnulus
+from photutils import aperture_photometry
+from photutils import EllipticalAperture
+
+from astroquery.irsa_dust import IrsaDust
+
+
+# from specutils.extinction import reddening
 
 def nicePlot():
     """
@@ -36,6 +52,7 @@ def nicePlot():
     plt.rcParams["legend.frameon"] = True
     plt.rcParams["legend.handletextpad"] = 1
 
+
 def find_sigma(data):
     """
     Simple expression to calculate Sigma quickly. Taking square root of median value of an array of values.
@@ -48,7 +65,7 @@ def find_sigma(data):
     return np.sqrt(np.nanmedian(data))
 
 
-def convert_to_wave(datacube, header, channels):
+def convert_to_wave(datacube, channels):
     """
     Converts channel values in 3D MUSE data into wavelength values along z axis (wavelength).
     Specifically works with .FITS formatted MUSE data.
@@ -56,29 +73,34 @@ def convert_to_wave(datacube, header, channels):
     Inputs:
         datacube(np.array):
             .FITS datacube
+        channels(np.array):
+            array containing wavelengths in angstroms
+
     Returns:
         (array) of wavelength values for given channel
     """
-    z_max, y_max, x_max = np.shape(datacube)
-    channels = np.arange(0, z_max, 1, int)
-    wave = header['CRVAL3'] + (np.array(channels) * header['CD3_3'])
+    data_headers = datacube.header
+    wave = data_headers['CRVAL3'] + (np.array(channels) * data_headers['CD3_3'])
     return np.array(wave, float)
 
-def convert_to_channel(datacube):
+
+def convert_to_channel(datacube, channels):
     """
     Converts wavelength values in 3D MUSE data into channel value along z axis
     Specifically works with .FITS formatted MUSE data.
 
     Inputs:
-        datacube(np.array): .FITS datacube
+        datacube(np.array):
+            .FITS datacube
+        channels(np.array):
+            channel of datacube to convert to wavelengths
     Returns:
         (array) of channel values for given wavelength
     """
     data_headers = datacube.header
-    z_max, y_max, x_max = np.shape(datacube)
-    wavelength_cube = np.arange(0, len(datacube), 1, int)
-    channel = wavelength_cube - data_headers['CRVAL3'] / data_headers['CD3_3']
+    channel = np.array(channels) - data_headers['CRVAL3'] / data_headers['CD3_3']
     return np.array(channel, float)
+
 
 def collapse_cube(datacube, min_lambda=None, max_lambda=None):
     """
@@ -106,7 +128,49 @@ def collapse_cube(datacube, min_lambda=None, max_lambda=None):
         print("collapse_cube : Invalid / unspecified minimum wavelength. Min value is set to 0")
 
     col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
+    del datacopy
+    del z_max, y_max, x_max
     return col_cube
+
+
+# currently does not produce anything useful
+# TODO
+def collapse_mean_cube(datacube, statcube, min_lambda=None, max_lambda=None):
+    """
+
+    Inputs:
+        datacube:
+        statcube:
+        min_lambda:
+        max_lambda:
+
+    Returns:
+
+    """
+    temp_collapsed_data = collapse_cube(datacube, min_lambda, max_lambda)
+    temp_collapsed_stat = collapse_cube(statcube, min_lambda, max_lambda)
+    embed()
+    temp_collapsed_stat = 1. / temp_collapsed_stat
+    badPix = np.isnan(temp_collapsed_data) | np.isnan(temp_collapsed_stat)
+    # to deal with np.nan a weight of (almost) zero is given to badPix
+    temp_collapsed_data[badPix] = 0.
+    temp_collapsed_stat[badPix] = np.nanmin(temp_collapsed_stat) / 1000.
+    collapsedDataImage, collapsedWeightsImage = np.average(temp_collapsed_data,
+                                                           weights=temp_collapsed_stat,
+                                                           axis=0,
+                                                           returned=True)
+    embed()
+    collapsedStatImage = 1. / collapsedWeightsImage
+    plt.imshow(temp_collapsed_stat)
+    plt.show()
+    print("collapseCubeWMean: Images produced")
+
+    # Deleting temporary cubes to clear up memory
+    del temp_collapsed_data
+    del temp_collapsed_stat
+    del collapsedWeightsImage
+
+    return collapsedDataImage, collapsedStatImage
 
 
 def location(datacube, x_position=None, y_position=None,
@@ -123,13 +187,13 @@ def location(datacube, x_position=None, y_position=None,
         y_position(int / float):
             User given y coord of stellar object
         semi_maj(int / float):
-            Semi-major axis. Set to default if not declared
+            Semi-major axis, default: 10
         semi_min(int / float):
-            Semi-minor axis. default: 0.6 * default
+            Semi-minor axis, default: 0.6 * default
         theta(int / float):
-            angle for ellipse rotation around object, default 0
+            angle for ellipse rotation around object, default: 0
         default(int):
-            Pixel scale set to 10 if not declared
+            Pixel scale, default: 10
     Returns:
         Mask of 2D array of with user defined stellar objects
         denoted as 1 with all other elements 0
@@ -168,28 +232,19 @@ def location(datacube, x_position=None, y_position=None,
 
     return np.array((mask_array > 0.), dtype=int)
 
-"""
-def ra_dec_location(datacube, ra, dec, theta=0):
-
-    CRVAL1 * (xposition - CDELTA1)
-
-    masked_array = np.zeros_like(datacube)
-    theta_rad = (theta * np.pi) / 180.  # converts angle degrees to radians
-    for pixel in datacube:
-"""
 
 def check_collapse(datacube, min_lambda, max_lambda):
     """
     Simple function that checks dimensions of data and will collapse if it is a 3D array.
     Inputs:
-        datacube(np.array):
+        datacube (np.array):
             2D or 3D array
-        min_lambda(int):
+        min_lambda (int):
             minimum z-range to collapse
-        max_lambda(int):
+        max_lambda (int):
             maximum z-range to collapse
     Returns:
-        datacopy(np.array):
+        datacopy (np.array):
             collapsed 2D data array
     """
     datacopy = np.copy(datacube)
@@ -200,3 +255,142 @@ def check_collapse(datacube, min_lambda, max_lambda):
     else:
         print("check_collapse: Data is already a 2D array.")
     return datacopy
+
+
+def dust_correction(datacube, wavelength, ra, dec):
+    """
+    Function queries the IRSA dust map for E(B-V) value and
+    returns a reddening array.
+    http://irsa.ipac.caltech.edu/applications/DUST/
+    The query return E(B_V) from SFD (1998). This will be converted
+    to the S&F (2011) one using:
+    E(B-V)S&F =  0.86 * E(B-V)SFD
+
+    Inputs:
+        datacube(np.array):
+            3D .fits file array
+        wavelength:
+
+        ra:
+
+        dec:
+
+
+    Returns:
+
+    """
+    datacopy = np.copy(datacube)
+    headers = np.copy(datacube.header)
+    z_max, y_max, x_max = np.shape(datacopy)
+    wavecopy = headers['CRVAL3'] + np.array(np.arange(0, z_max, 1)) * headers['CD3_3']
+    C = coord.SkyCoord(ra * u.deg, dec * u.deg, frame='fk5')
+    try:
+        dust_image = IrsaDust.get_images(C, radius=5. * u.deg, image_type='ebv', timeout=60)[0]
+    except:
+        print("Increasing dust image radius to 10deg")
+        dust_image = IrsaDust.get_images(C, radius=10. * u.deg, image_type='ebv', timeout=60)[0]
+    y_size, x_size = dust_image[0].data.shape
+    ebv = 0.86 * np.mean(dust_image[0].data[y_size - 2:y_size + 2, x_size - 2:y_size + 2])
+    r_v = 3.1
+    av = r_v * ebv
+    return reddening(wavelength * u.angstrom, av, r_v=r_v, model='ccm89'), ebv
+
+
+# finish function for de-reddening
+# Todo
+
+
+def quickApPhotmetry(image_data,
+                     image_var,
+                     x_pos,
+                     y_pos,
+                     radius_pos=2.,
+                     inner_rad=10.,
+                     outer_rad=15.):
+    """
+    Performing quick circular aperture photometry on an image.
+    An annular region with inner radius [inner_rad] and outer radius [outer_rad]
+    will be used to estimate the background.
+
+    Inputs:
+        image_data(np.array):
+            image where the aperture photometry will be performed
+        image_var(np.array):
+            variance image that will be used to calculate the errors
+            on the aperture photometry
+        x_pos (np.array):
+            x-location of the source in pixel
+        y_pos (np.array):
+            y-location of the source in pixel
+        radius_pos (np.array):
+            radius where to perform the aperture photometry
+        inner_rad (np.array):
+            inner radius of the background region in pixel
+        outer_rad (np.array):
+            outer radius of the background region in pixel
+    Returns:
+        obj_flux, obj_err_flux, ave_flux
+    """
+
+    print("quickApPhotmetry: Performing aperture photometry")
+
+    if np.size(x_pos) == 1:
+        x_object = np.array([x_pos])
+        y_object = np.array([y_pos])
+    else:
+        x_object = np.array(x_pos)
+        y_object = np.array(y_pos)
+
+    if np.size(radius_pos) == 1:
+        radius_aperture = np.full_like(x_object, radius_pos, float)
+    else:
+        radius_aperture = radius_pos
+
+    if np.size(inner_rad) == 1:
+        inner_aperture = np.full_like(x_object, inner_rad, float)
+    else:
+        inner_aperture = inner_rad
+
+    if np.size(outer_rad) == 1:
+        outer_aperture = np.full_like(x_object, outer_rad, float)
+    else:
+        outer_aperture = outer_rad
+
+    # setting up arrays
+    obj_flux = np.zeros_like(x_object, float)
+    obj_err_flux = np.zeros_like(x_object, float)
+    ave_flux = np.zeros_like(x_object, float)
+
+    for index in np.arange(0, np.size(x_object)):
+        print("quickApPhotmetry: Aperture photometry on source at: {}, {}".format(x_object[index], y_object[index]))
+        obj_pos = [x_object[index], y_object[index]]
+        circle_obj = CircularAperture(obj_pos, r=radius_aperture[index])
+        annulus_obj = CircularAnnulus(obj_pos, r_in=inner_aperture[index], r_out=outer_aperture[index])
+        # Flux
+        ap_phot = aperture_photometry(image_data, circle_obj)
+        # Background
+        image_datacopy = np.copy(image_data)
+        bad_bg = np.min([np.nanmin(image_datacopy), -99999.])
+        image_datacopy[~np.isfinite(image_datacopy)] = bad_bg
+        mask_bg = annulus_obj.to_mask(method='center')
+        data_bg = mask_bg.multiply(image_datacopy)
+        data_bg[(np.array(mask_bg) == 0)] = bad_bg
+        flat_data_bg = data_bg[data_bg > bad_bg].flatten()
+        mean_bg, median_bg, sigma_bg = sigma_clipped_stats(flat_data_bg)
+        # Variance
+        varApPhot = aperture_photometry(image_var, circle_obj)
+        # Filling arrays
+        obj_flux[index] = ap_phot['aperture_sum'][0] - (median_bg * circle_obj.area())
+        obj_err_flux[index] = np.power(np.array(varApPhot['aperture_sum'][0]), 0.5)
+        ave_flux[index] = median_bg
+
+    # Deleting temporary arrays to clear up memory
+    del radius_aperture
+    del inner_aperture
+    del outer_aperture
+    del obj_pos
+    del x_object
+    del y_object
+    del image_datacopy
+
+    return obj_flux, obj_err_flux, ave_flux

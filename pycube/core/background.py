@@ -19,7 +19,7 @@ def median_background(datacube, sigma):
     return np.nanmedian(datacube, 0)
 
 
-def sextractor_background(datacube, statcube, var_value):
+def sextractor_background(datacube, statcube, var_value = 5.):
     """
     Backgrounds should only be implemented on 2D array.
     For 3D files, collapse to a desired dimension before passing function.
