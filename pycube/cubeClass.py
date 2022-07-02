@@ -50,6 +50,7 @@ class IfuCube:
             Data row of file
             Stat (variance) row of file
         """
+        # ToDo the value of those should be set by the spectrograph object
         self.hdul = fits.open(self.image)
         self.primary = self.hdul[0]
         self.data = self.hdul[1]

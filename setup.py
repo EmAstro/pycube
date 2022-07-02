@@ -9,8 +9,8 @@ def get_scripts():
     r"""Grab scripts in the bin directory and in the sub-folder.
     """
     scripts = []
-    if os.path.isdir('bin'):
-        scripts = [script_name for script_name in glob.glob(os.path.join('bin', '*'))
+    if os.path.isdir('pycube/bin'):
+        scripts = [script_name for script_name in glob.glob(os.path.join('pycube/bin', '*'))
                    if not os.path.basename(script_name).endswith('.rst') and not os.path.isdir(script_name)]
     return scripts
 

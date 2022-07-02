@@ -67,11 +67,11 @@ def find_sigma(data):
 
 def channel_array(datacube, channel):
     """
-    Given a datacube, and a channel (x,y,z), creates a  numpy array of values of channel range
+    Given a datacontainer, and a channel (x,y,z), creates a  numpy array of values of channel range
 
     Inputs:
-        datacube(np.array):
-            3D datacube ~ .Fits file
+        datacontainer(np.array):
+            3D datacontainer ~ .Fits file
         channel(str):
             dimension name (x or X, y or Y, z or Z)
     Returns:
@@ -99,8 +99,8 @@ def convert_to_wave(datacube, channels='z'):
     Specifically works with .FITS formatted MUSE data.
     Utilizes header vals ('CRVAL3' and 'CD3_3')
     Inputs:
-        datacube(np.array):
-            .FITS datacube
+        datacontainer(np.array):
+            .FITS datacontainer
         channels(str):
             channel dimension (x, y, z) to create wavelength range array. default: 'z'
 
@@ -119,8 +119,8 @@ def convert_to_channel(datacube, channels='z'):
     Specifically works with .FITS formatted MUSE data.
 
     Inputs:
-        datacube(np.array):
-            .FITS datacube
+        datacontainer(np.array):
+            .FITS datacontainer
         channels(str):
             channel dimension (x, y, z) to create wavelength range array. default: 'z'
     Returns:
@@ -137,7 +137,7 @@ def collapse_cube(datacube, min_lambda=None, max_lambda=None):
     Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
 
     Inputs:
-        datacube(np.array):
+        datacontainer(np.array):
             3D data file
         min_lambda(int):
             minimum wavelength
@@ -170,7 +170,7 @@ def collapse_mean_cube(datacube, statcube, min_lambda=None, max_lambda=None):
     """
 
     Inputs:
-        datacube:
+        datacontainer:
         statcube:
         min_lambda:
         max_lambda:
@@ -209,7 +209,7 @@ def location(datacube, x_position=None, y_position=None,
     User input function to create elliptical mask of given coordinates for source in image.
 
     Inputs:
-        datacube(np.array):
+        datacontainer(np.array):
             2D collapsed image
         x_position(int / float):
             User given x coord of stellar object
@@ -268,7 +268,7 @@ def check_collapse(datacube, min_lambda, max_lambda):
     """
     Simple function that checks dimensions of data and will collapse if it is a 3D array.
     Inputs:
-        datacube (np.array):
+        datacontainer (np.array):
             2D or 3D array
         min_lambda (int):
             minimum z-range to collapse
@@ -298,7 +298,7 @@ def dust_correction(datacube, channel='z'):
     E(B-V)S&F =  0.86 * E(B-V)SFD
 
     Inputs:
-        datacube(np.array):
+        datacontainer(np.array):
             3D .fits file array / IFU cube object
         channel(str):
             defines channel for wavelength cube default 'z' for .Fits
@@ -444,7 +444,7 @@ def quickSpectrum(datacube,
 
 
     Inputs:
-        datacube:
+        datacontainer:
         statcube:
         x_pos:
         y_pos:
