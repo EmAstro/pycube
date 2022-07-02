@@ -24,7 +24,7 @@ def find_sources(datacube, statcube=None,
     If data is in 3D format, function will collapse given wavelength parameters
 
     Inputs:
-        datacontainer (array):
+        datacontainers (array):
             data cube. 2D or 3D
         statcube (array):
             variance cube. 2D or 3D. optional ~ will generate from data if not passed
@@ -321,7 +321,7 @@ def subtractBg(datacube,
     channel, the variance of the background will be used.
 
    Inputs:
-        datacontainer (np.array):
+        datacontainers (np.array):
             data in a 3D array
         statcube (np.array):
             variance in a 3D array
@@ -471,7 +471,7 @@ def makePsf(datacube,
     If norm is 'True' the macro normalize the flux of the PSF within radius_pos = 1.
 
    Inputs:
-        datacontainer (np.array):
+        datacontainers (np.array):
             data in a 3D array
         statcube (np.array):
             variance in a 3D array

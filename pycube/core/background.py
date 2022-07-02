@@ -11,10 +11,10 @@ def median_background(datacube, sigma):
     -> default background taking median of 2D data
 
     Inputs:
-        datacontainer: 2D array
+        datacontainers: 2D array
         sigma: not implemented
     Returns:
-        Median value of datacontainer background ignoring NaNs.
+        Median value of datacontainers background ignoring NaNs.
     """
     return np.nanmedian(datacube, 0)
 
@@ -26,7 +26,7 @@ def sextractor_background(datacube, statcube, var_value=5.):
     -> Performs SEP function https://github.com/kbarbary/sep to set up background.
 
     Inputs:
-        datacontainer(array): collapsed 2D array of 3D data
+        datacontainers(array): collapsed 2D array of 3D data
         sigma(array): 2D stat array converted in function
         var_value(int or float): affects the threshold parameter for normalizing the mask
     Returns:

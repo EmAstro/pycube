@@ -1,7 +1,7 @@
 r"""
 pycube_collapse
 ===============
-Script to collapse a datacontainer along the spectra axis
+Script to collapse a datacontainers along the spectra axis
 
 .. topic:: Inputs:
 
@@ -32,7 +32,7 @@ def parser(options=None):
         epilog=EXAMPLES)
 
     parser.add_argument("fits_files", nargs="+", type=str,
-                        help=r"Input datacontainer")
+                        help=r"Input datacontainers")
     parser.add_argument("-wl_min", "--wavelength_min", nargs="+", type=float, default=None,
                         help=r"Lower limit to collapse the cube")
     parser.add_argument("-wl_max", "--wavelength_max", action="store_true", default=False,

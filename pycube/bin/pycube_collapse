@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-r"""Collapse a datacontainer along the spectral axis
+r"""Collapse a datacontainers along the spectral axis
 """
 
 from pycube.scripts import pycube_collapse

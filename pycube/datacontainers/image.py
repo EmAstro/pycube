@@ -1,4 +1,4 @@
-from pycube.datacontainer import datacontainer
+from pycube.datacontainers import datacontainer
 
 
 class Image(datacontainer.DataContainer):
