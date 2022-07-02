@@ -16,8 +16,8 @@ from photutils import EllipticalAperture
 
 from astroquery.irsa_dust import IrsaDust
 
+from extinction import apply
 
-# from specutils.extinction import reddening
 
 def nicePlot():
     """
@@ -65,7 +65,35 @@ def find_sigma(data):
     return np.sqrt(np.nanmedian(data))
 
 
-def convert_to_wave(datacube, channels):
+def channel_array(datacube, channel):
+    """
+    Given a datacube, and a channel (x,y,z), creates a  numpy array of values of channel range
+
+    Inputs:
+        datacube(np.array):
+            3D datacube ~ .Fits file
+        channel(str):
+            dimension name (x or X, y or Y, z or Z)
+    Returns:
+        channel_array (np.array):
+            range array of length of given dimension
+    """
+
+    z_max, y_max, x_max = np.shape(datacube)
+    if channel == 'x' or channel == 'X':
+        channel_range = np.arange(0, x_max, 1, int)
+    elif channel == 'y' or channel == 'Y':
+        channel_range = np.arange(0, y_max, 1, int)
+    elif channel == 'z' or channel == 'Z':
+        channel_range = np.arange(0, z_max, 1, int)
+    else:
+        print("create_array: please enter a valid dimension to create from..")
+        print("Valid inputs: 'x', 'X', 'y', 'Y', 'z', 'Z'.")
+        return None
+    return channel_range
+
+
+def convert_to_wave(datacube, channels='z'):
     """
     Converts channel values in 3D MUSE data into wavelength values along z axis (wavelength).
     Specifically works with .FITS formatted MUSE data.
@@ -73,18 +101,19 @@ def convert_to_wave(datacube, channels):
     Inputs:
         datacube(np.array):
             .FITS datacube
-        channels(np.array):
-            array containing wavelengths in angstroms
+        channels(str):
+            channel dimension (x, y, z) to create wavelength range array. default: 'z'
 
     Returns:
         (array) of wavelength values for given channel
     """
     data_headers = datacube.header
-    wave = data_headers['CRVAL3'] + (np.array(channels) * data_headers['CD3_3'])
+    channel_range = channel_array(datacube, channels)
+    wave = data_headers['CRVAL3'] + (np.array(channel_range) * data_headers['CD3_3'])
     return np.array(wave, float)
 
 
-def convert_to_channel(datacube, channels):
+def convert_to_channel(datacube, channels='z'):
     """
     Converts wavelength values in 3D MUSE data into channel value along z axis
     Specifically works with .FITS formatted MUSE data.
@@ -92,19 +121,21 @@ def convert_to_channel(datacube, channels):
     Inputs:
         datacube(np.array):
             .FITS datacube
-        channels(np.array):
-            channel of datacube to convert to wavelengths
+        channels(str):
+            channel dimension (x, y, z) to create wavelength range array. default: 'z'
     Returns:
         (array) of channel values for given wavelength
     """
     data_headers = datacube.header
-    channel = np.array(channels) - data_headers['CRVAL3'] / data_headers['CD3_3']
+    channel_range = channel_array(datacube, channels)
+    channel = np.array(channel_range) - data_headers['CRVAL3'] / data_headers['CD3_3']
     return np.array(channel, float)
 
 
 def collapse_cube(datacube, min_lambda=None, max_lambda=None):
     """
     Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
+
     Inputs:
         datacube(np.array):
             3D data file
@@ -149,7 +180,6 @@ def collapse_mean_cube(datacube, statcube, min_lambda=None, max_lambda=None):
     """
     temp_collapsed_data = collapse_cube(datacube, min_lambda, max_lambda)
     temp_collapsed_stat = collapse_cube(statcube, min_lambda, max_lambda)
-    embed()
     temp_collapsed_stat = 1. / temp_collapsed_stat
     badPix = np.isnan(temp_collapsed_data) | np.isnan(temp_collapsed_stat)
     # to deal with np.nan a weight of (almost) zero is given to badPix
@@ -159,7 +189,6 @@ def collapse_mean_cube(datacube, statcube, min_lambda=None, max_lambda=None):
                                                            weights=temp_collapsed_stat,
                                                            axis=0,
                                                            returned=True)
-    embed()
     collapsedStatImage = 1. / collapsedWeightsImage
     plt.imshow(temp_collapsed_stat)
     plt.show()
@@ -220,7 +249,9 @@ def location(datacube, x_position=None, y_position=None,
         object_ellipse = EllipticalAperture(object_position, semi_maj, semi_min, theta_rad)
         ellipse_mask = object_ellipse.to_mask(method="center").to_image(shape=(x_mask, y_mask))
         mask_array += ellipse_mask
-
+    # TODO
+    # Bug here as well. [index] on theta, semi_maj and semi_min needed to run statBg.
+    # have to be removed to run the psf functions
     else:
         print("location: multiple sources specified, iterating through list")
         for index in range(0, len(x_position), 1):
@@ -257,7 +288,7 @@ def check_collapse(datacube, min_lambda, max_lambda):
     return datacopy
 
 
-def dust_correction(datacube, wavelength, ra, dec):
+def dust_correction(datacube, channel='z'):
     """
     Function queries the IRSA dust map for E(B-V) value and
     returns a reddening array.
@@ -268,36 +299,42 @@ def dust_correction(datacube, wavelength, ra, dec):
 
     Inputs:
         datacube(np.array):
-            3D .fits file array
-        wavelength:
-
-        ra:
-
-        dec:
-
-
+            3D .fits file array / IFU cube object
+        channel(str):
+            defines channel for wavelength cube default 'z' for .Fits
     Returns:
-
+        reddata, redstat (np.array):
+            dust-corrected reddened cubes for data and variance
     """
-    datacopy = np.copy(datacube)
-    headers = np.copy(datacube.header)
-    z_max, y_max, x_max = np.shape(datacopy)
-    wavecopy = headers['CRVAL3'] + np.array(np.arange(0, z_max, 1)) * headers['CD3_3']
-    C = coord.SkyCoord(ra * u.deg, dec * u.deg, frame='fk5')
+    reddata = np.copy(datacube.data.data)
+    redstat = np.copy(datacube.stat.data)
+    channel_range = channel_array(reddata, channel)
+
+    headers = datacube.primary.header
+    ra = headers['RA']
+    dec = headers['DEC']
+    wavecube = convert_to_wave(datacube.data, channel)
+
+    coordinates = coord.SkyCoord(ra * u.deg, dec * u.deg, frame='fk5')
     try:
-        dust_image = IrsaDust.get_images(C, radius=5. * u.deg, image_type='ebv', timeout=60)[0]
+        dust_image = IrsaDust.get_images(coordinates, radius=5. * u.deg, image_type='ebv', timeout=60)[0]
     except:
         print("Increasing dust image radius to 10deg")
-        dust_image = IrsaDust.get_images(C, radius=10. * u.deg, image_type='ebv', timeout=60)[0]
+        dust_image = IrsaDust.get_images(coordinates, radius=10. * u.deg, image_type='ebv', timeout=60)[0]
     y_size, x_size = dust_image[0].data.shape
     ebv = 0.86 * np.mean(dust_image[0].data[y_size - 2:y_size + 2, x_size - 2:y_size + 2])
     r_v = 3.1
     av = r_v * ebv
-    return reddening(wavelength * u.angstrom, av, r_v=r_v, model='ccm89'), ebv
 
-
-# finish function for de-reddening
-# Todo
+    redcube = []
+    for index in wavecube:
+        reddened_wave = apply(flux=index,extinction=av)
+        redcube.append(reddened_wave)
+    embed()
+    for channel in channel_range:
+        reddata[channel, :, :] *= redcube[channel]
+        redstat[channel, :, :] *= redcube[channel] ** 2
+    return reddata, redstat
 
 
 def quickApPhotmetry(image_data,
@@ -318,10 +355,10 @@ def quickApPhotmetry(image_data,
         image_var(np.array):
             variance image that will be used to calculate the errors
             on the aperture photometry
-        x_pos (np.array):
-            x-location of the source in pixel
-        y_pos (np.array):
-            y-location of the source in pixel
+        x_pos (int / float / np.array):
+            x-location of the source in pixel (converts to array)
+        y_pos (int / float / np.array):
+            y-location of the source in pixel (converts to array)
         radius_pos (np.array):
             radius where to perform the aperture photometry
         inner_rad (np.array):
@@ -362,7 +399,7 @@ def quickApPhotmetry(image_data,
     ave_flux = np.zeros_like(x_object, float)
 
     for index in np.arange(0, np.size(x_object)):
-        print("quickApPhotmetry: Aperture photometry on source at: {}, {}".format(x_object[index], y_object[index]))
+        print("Source", index + 1, ": Aperture photometry on source at: {}, {}".format(x_object[index], y_object[index]))
         obj_pos = [x_object[index], y_object[index]]
         circle_obj = CircularAperture(obj_pos, r=radius_aperture[index])
         annulus_obj = CircularAnnulus(obj_pos, r_in=inner_aperture[index], r_out=outer_aperture[index])
@@ -380,7 +417,7 @@ def quickApPhotmetry(image_data,
         # Variance
         varApPhot = aperture_photometry(image_var, circle_obj)
         # Filling arrays
-        obj_flux[index] = ap_phot['aperture_sum'][0] - (median_bg * circle_obj.area())
+        obj_flux[index] = ap_phot['aperture_sum'][0] - (median_bg * circle_obj.area)
         obj_err_flux[index] = np.power(np.array(varApPhot['aperture_sum'][0]), 0.5)
         ave_flux[index] = median_bg
 
@@ -394,3 +431,30 @@ def quickApPhotmetry(image_data,
     del image_datacopy
 
     return obj_flux, obj_err_flux, ave_flux
+
+def quickSpectrum(datacube,
+                  statcube,
+                  x_pos,
+                  y_pos,
+                  radius_pos=2.,
+                  inner_rad=10.,
+                  outer_rad=15.,
+                  void_mask=None):
+    """
+
+
+    Inputs:
+        datacube:
+        statcube:
+        x_pos:
+        y_pos:
+        radius_pos:
+        inner_rad:
+        outer_rad:
+        void_mask:
+
+    Returns:
+
+    """
+    if void_mask is None:
+        void_mask = np.zeros_like(datacube[0, :, :])

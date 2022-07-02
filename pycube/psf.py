@@ -94,6 +94,48 @@ def find_sources(datacube, statcube=None,
     del good_sources
     return x_pos, y_pos, maj_axis, min_axis, angle, all_objects
 
+def background_cube(datacube,
+                    statcube,
+                    sigSourceDetection=5.0,
+                    minSourceArea=16.,
+                    sizeSourceMask=6.,
+                    maxSourceSize=50.,
+                    maxSourceEll=0.9,
+                    edges=10,
+                    output='Object',
+                    debug=False,
+                    showDebug=False):
+
+    z_max, y_max, x_max = np.shape(datacube)
+    background_cube = np.zeros(z_max)
+    for index in range(z_max):
+        datacopy = np.copy(datacube[index, :, :])
+        statcopy = np.copy(statcube[index, :, :])
+        x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacopy, statcopy,
+                                                                            sig_detect=sigSourceDetection,
+                                                                            min_area=minSourceArea)
+        maskBg2D = np.zeros_like(datacopy)
+        sky_mask = manip.location(datacopy,
+                                  x_position=x_pos, y_position=y_pos,
+                                  semi_maj=sizeSourceMask * maj_axis,
+                                  semi_min=sizeSourceMask * min_axis,
+                                  theta=angle)
+
+        maskBg2D[(sky_mask == 1)] = 1
+
+        edges_mask = np.ones_like(sky_mask, dtype=int)
+        edges_mask[int(edges):-int(edges), int(edges):-int(edges)] = 0
+        maskBg2D[(edges_mask == 1)] = 1
+
+        mask_Bg_3D = np.broadcast_to((maskBg2D == 1), datacopy.shape)
+
+        datacopy[(mask_Bg_3D == 1)] = np.nan
+        bgDataImage = np.copy(datacopy)
+        bgDataImage[(maskBg2D == 1)] = np.nan
+        background_cube[index] = np.copy(bgDataImage)
+    return background_cube
+
+
 
 def statBg(dataCube,
            statCube=None,
@@ -208,12 +250,10 @@ def statBg(dataCube,
 
     if debug:
         print("statBg: Saving debug image on {}_BgRegion.pdf".format(output))
-        bgStatImage = manip.collapse_cube(statcopy, min_lambda, max_lambda)
         tempBgFlux = np.nanmean(bgDataImage)
         tempBgStd = np.nanstd(bgDataImage)
 
         plt.figure(1, figsize=(12, 6))
-        gs = gridspec.GridSpec(1, 2)
 
         axImage = plt.subplot2grid((1, 2), (0, 0), colspan=1)
         axClean = plt.subplot2grid((1, 2), (0, 1), colspan=1)
@@ -242,7 +282,6 @@ def statBg(dataCube,
         if showDebug:
             plt.show()
         plt.close()
-        del bgStatImage
 
     # preserve memory
     del data_image
@@ -405,7 +444,7 @@ def subtractBg(datacube,
             plt.close()
 
     gc.collect()
-    return datacopy, statcopy, averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage
+    return averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage
 
 
 def makePsf(datacube,
@@ -454,7 +493,7 @@ def makePsf(datacube,
             outer radius of the background region in pixel
         rPsf (float):
             radius of the PSF image to be created. Outside
-            this pixels values are set to zero
+            these pixels values are set to zero
         cType(str):
             type of combination for PSF creation:
             'average' is weighted average
@@ -479,7 +518,15 @@ def makePsf(datacube,
                                                       min_lambda=min_lambda, max_lambda=max_lambda)
 
     psf_flux, psf_err_flux, psf_ave_flux = manip.quickApPhotmetry(psf_data, psf_stat, x_pos=x_pos, y_pos=y_pos,
-                                                                  radius_pos=radius_pos, inner_rad=inner_rad, outer_rad=outer_rad)
+                                                                  radius_pos=radius_pos, inner_rad=inner_rad,
+                                                                  outer_rad=outer_rad)
+
+    # TODO
+    # check this for correctness. It averages the ave_flux and the psf_flux over all 17 detected sources...
+    # vvvvv TESTING AVERAGE HERE!!!! vvvvv
+    psf_ave_flux = np.mean(psf_ave_flux)
+    psf_flux = np.mean(psf_flux)
+    # ^^^^^ MAY NEED CORRECTION ^^^^^
 
     print("makePsf: Removing local background of {}".format(psf_ave_flux))
     psf_data = psf_data - psf_ave_flux

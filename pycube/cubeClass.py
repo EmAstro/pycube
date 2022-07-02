@@ -41,6 +41,7 @@ class IfuCube:
     def from_fits_file(self):
         """
         Opens .FITS file and separates information by primary, data, and stat.
+
         Inputs:
             fits_filename: .FITS file to assign self parameter to.
         Assigns:
@@ -59,24 +60,43 @@ class IfuCube:
                        maxSourceEll=0.9, edges=60, output='Object', debug=False,
                        showDebug=False):
         """
-          Uses statBg from psf.py to generate the source mask and the background image with sources removed and appends
-          to self.hdul for easy access
-        Args:
-            min_lambda:
-            max_lambda:
-            maskZ:
-            maskXY:
-            sigSourceDetection:
-            minSourceArea:
-            sizeSourceMask:
-            maxSourceSize:
-            maxSourceEll:
-            edges:
-            output:
-            debug:
-            showDebug:
+          Uses statBg from psf.py to generate the source mask and the background
+          image with sources removed and appends to self.hdul for easy access
 
-        Returns:
+        Inputs:
+            min_lambda (int):
+            min channel to create the image where to detect sources
+        max_lambda (int):
+            max channel to create the image where to detect sources
+        maskZ
+            when 1 (or True), this is a channel to be removed
+        maskXY
+            when 1 (or True), this spatial pixel will remove from
+            the estimate of the b/g values
+        sigSourceDetection (float):
+            detection sigma threshold for sources in the
+            collapsed cube. Defaults is 5.0
+        minSourceArea (float):
+            min area for source detection in the collapsed
+            cube. Default is 16.
+        sizeSourceMask (float):
+            for each source, the model will be created in an elliptical
+            aperture with size sizeSourceMask time the semi-minor and semi-major
+            axis of the detection. Default is 6.
+        maxSourceSize (float):
+            sources with semi-major or semi-minor axes larger than this
+            value will not be considered in the foreground source model.
+            Default is 50.
+        maxSourceEll (float):
+            sources with ellipticity larger than this value will not be
+            considered in the foreground source model. Default is 0.9.
+        edges (int):
+            frame size removed to avoid problems related to the edge
+            of the image
+        output (string):
+            root file name for output
+        Outputs:
+            Attaches source mask and source background to hdul.
 
         """
 
@@ -96,7 +116,6 @@ class IfuCube:
         self.hdul = self.hdul[:3] # removes MASK and BACKGROUND if function ran in succession
         self.hdul.append(self.source_mask)
         self.hdul.append(self.source_background)
-
 
     def background(self, mode='median'):
         if mode == 'median':
