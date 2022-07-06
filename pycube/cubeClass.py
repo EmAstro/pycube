@@ -51,15 +51,15 @@ class IfuCube:
             Stat (variance) row of file
         """
         # ToDo the value of those should be set by the spectrograph object
+        # When the user specifies what spectrograph they utilize the code should tailor to assign these
         self.hdul = fits.open(self.image)
         self.primary = self.hdul[0]
         self.data = self.hdul[1]
         self.stat = self.hdul[2]
 
-    def get_background(self, min_lambda=None, max_lambda=None, maskZ=None, maskXY=None,
+    def get_background(self,
                        sigSourceDetection=5.0, minSourceArea=16., sizeSourceMask=6., maxSourceSize=50.,
-                       maxSourceEll=0.9, edges=60, output='Object', debug=False,
-                       showDebug=False):
+                       maxSourceEll=0.9, edges=60):
         """
           Uses statBg from psf.py to generate the source mask and the background
           image with sources removed and appends to self.hdul for easy access
@@ -103,17 +103,15 @@ class IfuCube:
 
         datacopy = self.data.data
         statcopy = self.stat.data
-        average_bg, median_bg, std_bg, var_bg,\
-        pixels_bg, mask_bg_2D, bg_data_image = psf.statBg(dataCube=datacopy, statCube=statcopy,
-                                                    min_lambda=min_lambda, max_lambda=max_lambda,
-                                                    maskZ=maskZ, maskXY=maskXY,
+        datacopy = datacopy.byteswap(inplace=False).newbyteorder()
+        statcopy = statcopy.byteswap(inplace=False).newbyteorder()
+        cube_bg, mask_bg = psf.background_cube(datacube=datacopy, statcube=statcopy,
                                                     sigSourceDetection=sigSourceDetection, minSourceArea=minSourceArea,
                                                     sizeSourceMask=sizeSourceMask, maxSourceSize=maxSourceSize,
-                                                    maxSourceEll=maxSourceEll, edges=edges,
-                                                    output=output, debug=debug, showDebug=showDebug)
+                                                    maxSourceEll=maxSourceEll, edges=edges)
 
-        self.source_mask = fits.ImageHDU(data=mask_bg_2D, name='MASK')
-        self.source_background = fits.ImageHDU(data=bg_data_image, name='BACKGROUND')
+        self.source_mask = fits.ImageHDU(data=mask_bg, name='MASK')
+        self.source_background = fits.ImageHDU(data=cube_bg, name='BACKGROUND')
         self.hdul = self.hdul[:3] # removes MASK and BACKGROUND if function ran in succession
         self.hdul.append(self.source_mask)
         self.hdul.append(self.source_background)

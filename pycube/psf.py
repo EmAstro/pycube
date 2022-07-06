@@ -65,11 +65,10 @@ def find_sources(datacube, statcube=None,
         std_image = np.nanstd(data_background - med_background)
         var_background = variance_shell + \
                          np.nanvar(data_background[(data_background - med_background) < (var_factor * std_image)])
-
-    image_background = background.sextractor_background(data_background, var_background, var_value=7.)
+    image_background = background.sextractor_background(data_background, var_background)
     void_background = data_background - image_background
 
-    print("find_sources: Searching sources {}-sigma above noise".format(sig_detect))
+    #print("find_sources: Searching sources {}-sigma above noise".format(sig_detect))
     all_objects = sep.extract(void_background, sig_detect,
                               var=var_background,
                               minarea=min_area,
@@ -87,12 +86,13 @@ def find_sources(datacube, statcube=None,
     maj_axis = np.array(all_objects['a'][good_sources])
     min_axis = np.array(all_objects['b'][good_sources])
     angle = np.array(all_objects['theta'][good_sources])
-    print("find_sources: {} good sources detected".format(np.size(x_pos)))
+    #print("find_sources: {} good sources detected".format(np.size(x_pos)))
     # preserve memory
     del image_background
     del void_background
     del good_sources
     return x_pos, y_pos, maj_axis, min_axis, angle, all_objects
+
 
 def background_cube(datacube,
                     statcube,
@@ -101,17 +101,15 @@ def background_cube(datacube,
                     sizeSourceMask=6.,
                     maxSourceSize=50.,
                     maxSourceEll=0.9,
-                    edges=10,
-                    output='Object',
-                    debug=False,
-                    showDebug=False):
-
+                    edges=10):
     z_max, y_max, x_max = np.shape(datacube)
-    background_cube = np.zeros(z_max)
+    cube_bg = np.full_like(datacube, np.nan)
+    mask_bg = np.full_like(datacube, np.nan)
     for index in range(z_max):
         datacopy = np.copy(datacube[index, :, :])
         statcopy = np.copy(statcube[index, :, :])
-        x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacopy, statcopy,
+        x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacopy, statcopy,min_lambda=index,
+                                                                            max_lambda=index,
                                                                             sig_detect=sigSourceDetection,
                                                                             min_area=minSourceArea)
         maskBg2D = np.zeros_like(datacopy)
@@ -123,7 +121,7 @@ def background_cube(datacube,
 
         maskBg2D[(sky_mask == 1)] = 1
 
-        edges_mask = np.ones_like(sky_mask, dtype=int)
+        edges_mask = np.ones_like(sky_mask, int)
         edges_mask[int(edges):-int(edges), int(edges):-int(edges)] = 0
         maskBg2D[(edges_mask == 1)] = 1
 
@@ -132,9 +130,13 @@ def background_cube(datacube,
         datacopy[(mask_Bg_3D == 1)] = np.nan
         bgDataImage = np.copy(datacopy)
         bgDataImage[(maskBg2D == 1)] = np.nan
-        background_cube[index] = np.copy(bgDataImage)
-    return background_cube
-
+        del datacopy
+        del statcopy
+        cube_bg[index] = bgDataImage
+        del bgDataImage
+        mask_bg[index] = maskBg2D
+        del maskBg2D
+    return cube_bg, mask_bg
 
 
 def statBg(dataCube,
@@ -212,17 +214,18 @@ def statBg(dataCube,
     data_image = manip.collapse_cube(datacopy, min_lambda, max_lambda)
     stat_image = manip.collapse_cube(statcopy, min_lambda, max_lambda)
     print("statBg: Searching for sources in the collapsed cube")
-    x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(data_image, stat_image, sig_detect=sigSourceDetection,
-                                                             min_area=minSourceArea)
+    x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(data_image, stat_image,
+                                                                        sig_detect=sigSourceDetection,
+                                                                        min_area=minSourceArea)
 
     print("statBg: Detected {} sources".format(len(x_pos)))
     print("statBg: Masking sources")
     maskBg2D = np.zeros_like(data_image)
 
     sky_mask = manip.location(data_image, x_position=x_pos, y_position=y_pos,
-                             semi_maj=sizeSourceMask * maj_axis,
-                             semi_min=sizeSourceMask * min_axis,
-                             theta=angle)
+                              semi_maj=sizeSourceMask * maj_axis,
+                              semi_min=sizeSourceMask * min_axis,
+                              theta=angle)
 
     maskBg2D[(sky_mask == 1)] = 1
 
@@ -521,20 +524,15 @@ def makePsf(datacube,
                                                                   radius_pos=radius_pos, inner_rad=inner_rad,
                                                                   outer_rad=outer_rad)
 
-    # TODO
-    # check this for correctness. It averages the ave_flux and the psf_flux over all 17 detected sources...
-    # vvvvv TESTING AVERAGE HERE!!!! vvvvv
-    psf_ave_flux = np.mean(psf_ave_flux)
-    psf_flux = np.mean(psf_flux)
-    # ^^^^^ MAY NEED CORRECTION ^^^^^
 
+    mean_ave_flux = np.mean(psf_ave_flux)
     print("makePsf: Removing local background of {}".format(psf_ave_flux))
-    psf_data = psf_data - psf_ave_flux
+    psf_data = psf_data - mean_ave_flux
 
     if norm:
         print("makePsf: Normalizing central region to 1")
         print("         (i.e. correcting for a factor {}".format(psf_flux))
-        psf_norm = psf_flux
+        psf_norm = np.mean(psf_flux)
     else:
         psf_norm = 1.
 
@@ -552,7 +550,7 @@ def makePsf(datacube,
         manip.nicePlot()
 
         plt.figure(1, figsize=(12, 6))
-        #gs = gridspec.GridSpec(1, 2)
+        # gs = gridspec.GridSpec(1, 2)
 
         ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
         ax_stat = plt.subplot2grid((1, 2), (0, 1), colspan=1)

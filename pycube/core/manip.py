@@ -18,7 +18,6 @@ from astroquery.irsa_dust import IrsaDust
 
 from extinction import apply
 
-
 def nicePlot():
     """
     Copied over to allow subtractBg and statBg to run
@@ -242,20 +241,24 @@ def location(datacube, x_position=None, y_position=None,
 
     if x_position is None:
         print("location: no source input, no mask created")
-
     elif type(x_position) is int or type(x_position) is float:
         print("location: single source identified")
         theta_rad = (theta * np.pi) / 180.  # converts angle degrees to radians
         object_ellipse = EllipticalAperture(object_position, semi_maj, semi_min, theta_rad)
         ellipse_mask = object_ellipse.to_mask(method="center").to_image(shape=(x_mask, y_mask))
         mask_array += ellipse_mask
-    # TODO
-    # Bug here as well. [index] on theta, semi_maj and semi_min needed to run statBg.
-    # have to be removed to run the psf functions
     else:
-        print("location: multiple sources specified, iterating through list")
+        if type(theta) is int or type(theta) is float:
+            theta = np.zeros_like(x_position)
+        if type(semi_min) is int or type(semi_min) is float:
+            semi_min = np.full_like(x_position, semi_min)
+        if type(semi_maj) is int or type(semi_maj) is float:
+            semi_maj = np.full_like(x_position, semi_maj)
+
+        #print("location: multiple sources specified, iterating through list")
         for index in range(0, len(x_position), 1):
             object_position = [x_position[index], y_position[index]]
+            #print("location: Masking for object",index + 1, "at position:",object_position)
             theta_rad = (theta[index] * np.pi) / 180.  # converts angle degrees to radians
             object_ellipse = EllipticalAperture(object_position, semi_maj[index], semi_min[index], theta_rad)
             ellipse_mask = object_ellipse.to_mask(method="center").to_image(shape=(x_mask, y_mask))
@@ -281,14 +284,10 @@ def check_collapse(datacube, min_lambda, max_lambda):
     datacopy = np.copy(datacube)
     if datacopy.ndim > 2:
         datacopy = collapse_cube(datacopy, min_lambda, max_lambda)
-    elif datacopy.ndim < 2:
-        print("check_collapse: Invalid data size. Use data of dimensions 3 or 2.")
-    else:
-        print("check_collapse: Data is already a 2D array.")
     return datacopy
 
 
-def dust_correction(datacube, channel='z'):
+def dust_correction(datacube):
     """
     Function queries the IRSA dust map for E(B-V) value and
     returns a reddening array.
@@ -308,12 +307,12 @@ def dust_correction(datacube, channel='z'):
     """
     reddata = np.copy(datacube.data.data)
     redstat = np.copy(datacube.stat.data)
-    channel_range = channel_array(reddata, channel)
+    channel_range = channel_array(reddata, 'z') #creates channel along z-axis
 
     headers = datacube.primary.header
     ra = headers['RA']
     dec = headers['DEC']
-    wavecube = convert_to_wave(datacube.data, channel)
+    wavecube = convert_to_wave(datacube.data, 'z') # creates wavelength value cube along z-axis
 
     coordinates = coord.SkyCoord(ra * u.deg, dec * u.deg, frame='fk5')
     try:
@@ -328,9 +327,8 @@ def dust_correction(datacube, channel='z'):
 
     redcube = []
     for index in wavecube:
-        reddened_wave = apply(flux=index,extinction=av)
+        reddened_wave = apply(flux=index, extinction=av)
         redcube.append(reddened_wave)
-    embed()
     for channel in channel_range:
         reddata[channel, :, :] *= redcube[channel]
         redstat[channel, :, :] *= redcube[channel] ** 2
@@ -415,7 +413,7 @@ def quickApPhotmetry(image_data,
         flat_data_bg = data_bg[data_bg > bad_bg].flatten()
         mean_bg, median_bg, sigma_bg = sigma_clipped_stats(flat_data_bg)
         # Variance
-        varApPhot = aperture_photometry(image_var, circle_obj)
+        varApPhot = aperture_photometry(image_data, circle_obj)
         # Filling arrays
         obj_flux[index] = ap_phot['aperture_sum'][0] - (median_bg * circle_obj.area)
         obj_err_flux[index] = np.power(np.array(varApPhot['aperture_sum'][0]), 0.5)
@@ -433,7 +431,7 @@ def quickApPhotmetry(image_data,
     return obj_flux, obj_err_flux, ave_flux
 
 def quickSpectrum(datacube,
-                  statcube,
+                  cubeStat,
                   x_pos,
                   y_pos,
                   radius_pos=2.,
@@ -458,3 +456,220 @@ def quickSpectrum(datacube,
     """
     if void_mask is None:
         void_mask = np.zeros_like(datacube[0, :, :])
+    else:
+        print("quickSpectrum: Using void_mask")
+
+    specApPhot = []
+    specVarApPhot = []
+    specFluxBg = []
+
+    posObj = [x_pos, y_pos]
+    circObj = CircularAperture(posObj, r=radius_pos)
+    annuObj = CircularAnnulus(posObj, r_in=inner_rad, r_out=outer_rad)
+    zMax, yMax, xMax = datacube.shape
+
+    for channel in np.arange(0, zMax, 1):
+        # Total flux
+        tempData = np.copy(datacube[channel, :, :])
+        apPhot = aperture_photometry(tempData, circObj)
+        # Background masking bad values
+        tempDataBg = np.copy(datacube[channel, :, :])
+        badBg = np.min([np.nanmin(tempDataBg), -99999.])
+        tempDataBg[(void_mask == 1)] = badBg
+        tempDataBg[~np.isfinite(tempDataBg)] = badBg
+        maskBg = annuObj.to_mask(method='center')
+        dataBg = maskBg.multiply(tempDataBg)
+        dataBg[(np.array(maskBg) == 0)] = badBg
+        dataBg1d = dataBg[dataBg > badBg].flatten()
+        meanBg, medianBg, sigmaBg = sigma_clipped_stats(dataBg1d)
+        # Error
+        tempStat = np.copy(datacube[channel, :, :])
+        varApPhot = aperture_photometry(tempStat, circObj)
+        # Loading lists
+        specApPhot.append(apPhot['aperture_sum'][0] - (medianBg * circObj.area))
+        specVarApPhot.append(varApPhot['aperture_sum'][0])
+        specFluxBg.append(medianBg)
+
+    # Deleting temporary arrays to clear up memory
+    del tempData
+    del tempStat
+    del tempDataBg
+
+    specVarApPhot = np.array(specVarApPhot)
+    specVarApPhot[~np.isfinite(specVarApPhot)] = np.nanmax(specVarApPhot)
+    return np.array(specApPhot), np.power(specVarApPhot, 0.5), np.array(specFluxBg)
+
+
+def quickSpectrumNoBgMask(cubeData,
+                          cubeStat,
+                          maskXY):
+    """Performing quick spectrum extraction from an aperture given by a 2D mask
+    from a cube.
+    Parameters
+    ----------
+    dataData : np.array
+        data in a 3D array
+    statCube : np.array
+        variance in a 3D array
+    maskXY : np.array
+        2D aperture where to perform the spectral extraction.
+        Only spaxels marked as 1 are considered
+    Returns
+    -------
+    fluxObj, errFluxObj
+    """
+
+    print("quickSpectrumNoBgMask: Extracting spectrum from the cube")
+    cubeDataTmp = np.copy(cubeData)
+    cubeStatTmp = np.copy(cubeStat)
+    zMax, yMax, xMax = cubeData.shape
+    for channel in np.arange(0, zMax, 1):
+        # masking arrays
+        cubeDataTmp[channel, :, :][(maskXY<1)] = 0
+        cubeStatTmp[channel, :, :][(maskXY<1)] = 0
+
+    fluxObj = np.nansum(cubeDataTmp, axis=(1,2))
+    errFluxObj = np.power(np.nansum(cubeStatTmp, axis=(1, 2)), 0.5)
+
+    # Deleting temporary arrays to clear up memory
+    del cubeDataTmp
+    del cubeStatTmp
+
+    return fluxObj, errFluxObj
+
+def gaussian(x, N, x0, sigma):
+    """ Returns gaussian given normalization, center, and sigma.
+
+    Inputs:
+        x(np.array):
+            x-vector
+        N, x0, sigma(float):
+            Normalization, center, and sigma of the gaussian
+    Returns:
+        gauss(np.array):
+            the gaussian curve evaluated in x
+    """
+
+    gauss = N*np.exp(-(x-x0)**2/(2.*sigma**2))
+
+    return np.array(gauss, float)
+
+
+def statFullCube(dataCube,
+                 nSigmaExtreme=None):
+    """Given a cube the macro calculate average, median, and
+    sigma of all its voxels. NaNs are considered as bad pixels
+    and removed.
+
+    Inputs:
+        dataCube(np.array):
+            3D cube containing the voxels you want to get the
+            statistic for.
+        sigmaExtreme(float):
+            if not None, voxels with values larger than
+            sigmaExtreme times the standard deviation of
+            the cube will be masked.
+    Returns:
+        cubeAverage, cubeMedian, cubeStandard(float):
+            average, median, and standard deviation of
+            the cube.
+    """
+
+    print("statFullCube: statistic on the cube")
+    dataCubeTmp = np.copy(dataCube)
+
+    cubeAverage = np.nanmean(dataCubeTmp)
+    cubeMedian = np.nanmedian(dataCubeTmp)
+    cubeStandard = np.nanstd(dataCubeTmp)
+
+    if nSigmaExtreme is not None:
+        # Workaround to avoid problems generated by using np.abs and NaNs
+        extremeMask = np.zeros_like(dataCubeTmp, int)
+        dataCubeTmp[~np.isfinite(dataCubeTmp)] = cubeAverage + (3.*nSigmaExtreme*cubeStandard)
+        extremeMask[np.abs((dataCubeTmp-cubeAverage)/cubeStandard)>nSigmaExtreme] = 1
+        cubeAverage = np.nanmean(dataCubeTmp[(extremeMask==0)])
+        cubeMedian = np.nanmedian(dataCubeTmp[(extremeMask==0)])
+        cubeStandard = np.nanstd(dataCubeTmp[(extremeMask==0)])
+        del extremeMask
+
+    print("statFullCube: average = {:+0.3f}".format(cubeAverage))
+    print("              median  = {:+0.3f}".format(cubeMedian))
+    print("              sigma   = {:+0.3f}".format(cubeStandard))
+
+    # Cleaning up memory
+    del dataCubeTmp
+
+    return cubeAverage,  cubeMedian, cubeStandard
+
+
+def statFullCubeZ(dataCube,
+                 nSigmaExtreme=None):
+    """Given a cube the macro calculate average, median, and
+    sigma of all its voxels along the spectral (z) axis.
+    NaNs are considered as bad pixels and removed.
+
+    Inputs:
+        dataCube(np.array):
+            3D cube containing the voxels you want to get the
+            statistic for.
+        sigmaExtreme(np.array):
+            if not None, voxels with values larger than
+            sigmaExtreme times the standard deviation of
+            the cube will be masked.
+    Returns:
+        cubeAverageZ, cubeMedianZ, cubeStandardZ(np.arrays):
+            average, median, and standard deviation of
+            the cubea long the spectral axis.
+    """
+
+    print("statFullCubeZ: statistic on the cube")
+    dataCubeTmp = np.copy(dataCube)
+
+    cubeAverageZ = np.nanmean(dataCubeTmp, axis=(1,2))
+    cubeMedianZ = np.nanmedian(dataCubeTmp, axis=(1,2))
+    cubeStandardZ = np.nanstd(dataCubeTmp, axis=(1,2))
+
+    if nSigmaExtreme is not None:
+        # Workaround to avoid problems generated by using np.abs and NaNs
+        extremeMask = np.zeros_like(dataCubeTmp, int)
+        zMax, yMax, xMax = np.shape(dataCubeTmp)
+        for channel in np.arange(0, zMax):
+            dataCubeTmp[channel, :, :][~np.isfinite(dataCubeTmp[channel, :, :])] = cubeAverageZ[channel] + (3.* nSigmaExtreme * cubeStandardZ[channel])
+            extremeMask[channel, :, :][np.abs((dataCubeTmp[channel, :, :]-cubeAverageZ[channel])/cubeStandardZ[channel])> nSigmaExtreme] = 1
+        dataCubeTmp[(extremeMask==1)] = np.nan
+        cubeAverageZ = np.nanmean(dataCubeTmp, axis=(1,2))
+        cubeMedianZ = np.nanmedian(dataCubeTmp, axis=(1,2))
+        cubeStandardZ = np.nanstd(dataCubeTmp, axis=(1,2))
+        del extremeMask
+
+    # Cleaning up memory
+    del dataCubeTmp
+
+    return cubeAverageZ, cubeMedianZ, cubeStandardZ
+
+def distFromPixel(zPix1, yPix1, xPix1,
+                  zPix2, yPix2, xPix2):
+    """ Given a pixel (1) and a set of locations
+    (2), the macro returns the euclidean distance
+    from (2) to (1)
+    Parameters
+    ----------
+    zPix1, yPix1, xPix1 : np.floats
+        location of the pixel from which calculate the
+        distances
+    zPix2, yPix2, xPix2 : np.arrays
+        location of the pixels for which the distances
+        from zPix1, yPix1, xPix1 will be calculated
+    Parameters
+    ----------
+    dist : np.array
+        distance from (1) to (2)
+    """
+
+    zDist = np.power(zPix1-zPix2, 2.)
+    yDist = np.power(yPix1-yPix2, 2.)
+    xDist = np.power(xPix1-xPix2, 2.)
+
+    dist = np.sqrt(zDist+yDist+xDist)
+
+    return dist
