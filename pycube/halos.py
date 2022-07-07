@@ -342,7 +342,7 @@ def maskHalo(chiCube,
     # Removing masked data
 
     if debug:
-        print("maskHalo: Creting debug image")
+        print("maskHalo: Creating debug image")
         print("          Plotting Channel {} where the most significative voxel is.".format(zMaxSChi))
         print("          The location of this voxel is marked with a red circle")
         print("          The position of the quasars is in blue")
@@ -479,7 +479,8 @@ def cleanMaskHalo(maskHalo,
                   channelMax=None,
                   debug=False,
                   showDebug=False):
-    """Given the halo mask, the macro performs some quality
+    """
+    Given the halo mask, the macro performs some quality
     check:
      - if a spatial pixel (x,y) has less than deltaZmin consecutive
        voxels identified along the z-axis, this will be removed from
@@ -487,22 +488,20 @@ def cleanMaskHalo(maskHalo,
      - If the total number of voxels is less than minGood the halo
        is considered as not detected and the mask is cleaned.
 
-    Parameters
-    ----------
-    maskHalo : np.array
-        3D mask of the halo location.
-    deltaZMin : np.int
-        min size in the spectral axis to consider the voxel
-        as part of the halo
-    channelMin, channelMax : np.array
-        only voxels between channelMin and channelMax in the
-        spectral direction will be considered in the creation
-        of the cleanMask
+    Inputs:
+        maskHalo(np.array):
+            3D mask of the halo location.
+        deltaZMin(int):
+            min size in the spectral axis to consider the voxel
+            as part of the halo
+        channelMin, channelMax(np.array):
+            only voxels between channelMin and channelMax in the
+            spectral direction will be considered in the creation
+            of the cleanMask
 
-    Returns
-    -------
-    maskHaloClean : np.array
-        cleaned 3D mask of the halo location.
+    Returns:
+        maskHaloClean(np.array):
+            cleaned 3D mask of the halo location.
     """
 
     print("cleanMaskHalo: cleaning halo mask")
@@ -581,39 +580,37 @@ def makeMoments(headCube,
       mom2: is the velocity dispersion
             mom2 = sqrt[ sum[ Flux*(DV-mom1)**2. ] / sum[Flux] ]
 
-    Parameters
-    ----------
-    headData : hdu header
-        fits header for the cube
-    dataCube : np.array
-        data in a 3D array
-    statCube : np.array
-        variance in a 3D array
-    maskHalo : np.array
-        mask where the detected extended emission is set to 1 and
-        the background is set to 0. It has the same shape of the
-        input dataCube.
-    centralWave : np.float
-        wavelength in Ang. from which to calculate the
-        velocity shifts. If None, the macro will calculate
-        it from the spectrum of the halo.
-    sSmooth : np.float
-        smooth length in pixel in the spatial direction
-    truncate : np.float
-        number of sigma after which the smoothing kernel
-        is truncated
+    Inputs:
+        headData(hdu header):
+            fits header for the cube
+        dataCube(np.array):
+            data in a 3D array
+        statCube(np.array):
+            variance in a 3D array
+        maskHalo(np.array):
+            mask where the detected extended emission is set to 1 and
+            the background is set to 0. It has the same shape of the
+            input dataCube.
+        centralWave(float):
+            wavelength in Ang. from which to calculate the
+            velocity shifts. If None, the macro will calculate
+            it from the spectrum of the halo.
+        sSmooth(float):
+            smooth length in pixel in the spatial direction
+        truncate(float):
+            number of sigma after which the smoothing kernel
+            is truncated
 
 
-    Returns
-    -------
-    mom0, mom1, mom2 : np.arrays
-        moment maps in 2D arrays. Units for mom0 are
-        of fluxes, while for mom1 and mom2 are of
-        velocity
-    centralWave : np.float
-        wavelength in Ang. from which to the velocity shifts
-        are calculated. It is equal to the input wavelength
-        if not set to None.
+    Returns:
+        mom0, mom1, mom2(np.arrays):
+            moment maps in 2D arrays. Units for mom0 are
+            of fluxes, while for mom1 and mom2 are of
+            velocity
+        centralWave(float):
+            wavelength in Ang. from which to the velocity shifts
+            are calculated. It is equal to the input wavelength
+            if not set to None.
     """
 
     print("makeMoments: estimating halo moments")
@@ -648,7 +645,7 @@ def makeMoments(headCube,
         vSmooth = 0
         dataSigma = (vSmooth, sSmooth, sSmooth)
         # Removing nans
-        dataCubeTmp = np.nan_to_num(dataCube, copy='True')
+        dataCubeTmp = np.nan_to_num(dataCube, copy=True)
         dataCubeTmp = ndimage.filters.gaussian_filter(dataCubeTmp, dataSigma,
                                                       truncate=truncate)
     # Extract Spectrum

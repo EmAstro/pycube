@@ -527,12 +527,15 @@ def makePsf(datacube,
 
     mean_ave_flux = np.mean(psf_ave_flux)
     print("makePsf: Removing local background of {}".format(psf_ave_flux))
-    psf_data = psf_data - mean_ave_flux
+    #psf_data = psf_data - mean_ave_flux
+    psf_data = psf_data - psf_ave_flux
+
 
     if norm:
         print("makePsf: Normalizing central region to 1")
         print("         (i.e. correcting for a factor {}".format(psf_flux))
-        psf_norm = np.mean(psf_flux)
+        #psf_norm = np.mean(psf_flux)
+        psf_norm = psf_flux
     else:
         psf_norm = 1.
 
@@ -601,3 +604,116 @@ def makePsf(datacube,
 
     gc.collect()
     return psf_data, psf_stat
+
+
+def cleanPsf(dataCube,
+             statCube,
+             psfModel,
+             x_pos,
+             y_pos,
+             rPsf=2.,
+             rIbg=10.,
+             rObg=15.,
+             bgPsf=True,
+             debug=False,
+             showDebug=False):
+    """Given a cube and a PSF model, the macro subtracts the PSF contribution
+    along the wavelength axis. It assumes that the PSF model is normalized to
+    one within rPsf and that the PSF model is centered in the same location
+    of the object you want to remove. This will be improved in the future.
+
+    Inputs:
+
+        dataData(np.array):
+            data in a 3D array
+        statCube(np.array):
+            variance in a 3D array
+        xPsf(float):
+            x-location of the source in pixel
+        yPsf(float):
+            y-location of the source in pixel
+        rPsf(float):
+            radius where to perform the aperture photometry
+            to remove the PSF contribution.
+        rIbg(float):
+            inner radius of the background region in pixel
+        rObg(float):
+            outer radius of the background region in pixel
+        bgPsf(bool):
+            if True, an additional local background subtraction will be
+            performed around the source. Default is True
+    Returns:
+        psfSubCube, psfModel(np.arrays):
+            PSF subtracted cube and PSF model cube
+    """
+
+    print("cleanPsf: PSF subtraction on cube")
+
+    dataCubeClean = np.copy(dataCube)
+    dataCubeModel = np.zeros_like(dataCube)
+    zMax, yMax, xMax = np.shape(dataCubeClean)
+
+    print("cleanPsf: The min, max values for PSF model are: {:03.4f}, {:03.4f}".format(np.min(psfModel), np.max(psfModel)))
+    # extract spectrum of the source from the dataCube
+    if bgPsf:
+        fluxSource, errFluxSource, bgFluxSource = manip.quickSpectrum(dataCube, statCube,
+                                                                      x_pos,
+                                                                      y_pos,
+                                                                      radius_pos=rPsf,
+                                                                      inner_rad=rIbg,
+                                                                      outer_rad=rObg)
+    else:
+        fluxSource, errFluxSource = manip.quickSpectrumNoBg(dataCube, statCube,
+                                                            x_pos,
+                                                            y_pos,
+                                                            radius_pos=rPsf)
+
+    for channel in range(0,zMax):
+        # selecting only where the source is significantly detected
+        if fluxSource[channel]>0.5*errFluxSource[channel]:
+            if bgPsf:
+                dataCubeClean[channel, :, :] = dataCubeClean[channel, :, :] - ((psfModel * fluxSource[channel]) + bgFluxSource[channel])
+                dataCubeModel[channel, :, :] = dataCubeModel[channel, :, :] + ((psfModel * fluxSource[channel]) + bgFluxSource[channel])
+            else:
+                dataCubeClean[channel, :, :] = dataCubeClean[channel, :, :] - (psfModel * fluxSource[channel])
+                dataCubeModel[channel, :, :] = dataCubeModel[channel, :, :] + (psfModel * fluxSource[channel])
+
+    if debug:
+        print("cleanPsf: Spectrum of the source")
+
+        manip.nicePlot()
+
+        plt.figure(1, figsize=(18, 6))
+        gs = gridspec.GridSpec(1, 3)
+
+        axImag = plt.subplot2grid((1, 3), (0, 0), colspan=1)
+        axSpec = plt.subplot2grid((1, 3), (0, 1), colspan=2)
+
+        modelTempXMin, modelTempXMax = int(x_pos - rIbg), int(x_pos + rIbg)
+        modelTempYMin, modelTempYMax = int(y_pos - rIbg), int(y_pos + rIbg)
+        modelTemp = np.copy(psfModel[modelTempYMin:modelTempYMax, modelTempXMin:modelTempXMax])
+        axImag.imshow(modelTemp,
+                      cmap="Greys", origin="lower",
+                      vmin=0.,
+                      vmax=1./(np.pi*rPsf*rPsf))
+        axImag.set_xlabel(r"X [Pixels]", size=30)
+        axImag.set_ylabel(r"Y [Pixels]", size=30)
+
+        axSpec.plot(fluxSource, color='black', zorder=3, label='Flux')
+        axSpec.plot(errFluxSource, color='gray', alpha=0.5, zorder=2, label='Error')
+        if bgPsf:
+            axSpec.plot(bgFluxSource*(np.pi*rPsf*rPsf), color='red', alpha=0.5, zorder=1, label='b/g')
+        axSpec.legend()
+        axSpec.set_xlabel(r"Channel", size=30)
+        axSpec.set_ylabel(r"Flux", size=30)
+
+        plt.tight_layout()
+        if showDebug:
+            plt.show()
+        plt.close()
+        del modelTemp
+
+    print("cleanPsf: PSF cleaning performed")
+
+    gc.collect()
+    return dataCubeClean, dataCubeModel

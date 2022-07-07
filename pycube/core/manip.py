@@ -439,8 +439,6 @@ def quickSpectrum(datacube,
                   outer_rad=15.,
                   void_mask=None):
     """
-
-
     Inputs:
         datacontainers:
         statcube:
@@ -497,8 +495,56 @@ def quickSpectrum(datacube,
 
     specVarApPhot = np.array(specVarApPhot)
     specVarApPhot[~np.isfinite(specVarApPhot)] = np.nanmax(specVarApPhot)
-    return np.array(specApPhot), np.power(specVarApPhot, 0.5), np.array(specFluxBg)
+    return np.array(specApPhot), np.sqrt(specVarApPhot), np.array(specFluxBg)
 
+def quickSpectrumNoBg(cubeData,
+                      cubeStat,
+                      x_pos,
+                      y_pos,
+                      radius_pos=2.):
+    """Performing quick spectrum extraction from a circular aperture on a cube.
+    Parameters
+    ----------
+    dataData : np.array
+        data in a 3D array
+    statCube : np.array
+        variance in a 3D array
+    x_pos : np.array
+        x-location of the source in pixel
+    y_pos : np.array
+        y-location of the source in pixel
+    radius_pos : np.array
+        radius where to perform the aperture photometry
+    Returns
+    -------
+    fluxObj, errFluxObj
+    """
+
+    print("quickSpectrumNoBg: Extracting spectrum from the cube")
+
+    specApPhot = []
+    specVarApPhot = []
+
+    posObj  = [x_pos, y_pos]
+    circObj = CircularAperture(posObj, r=radius_pos)
+    zMax, yMax, xMax = cubeData.shape
+
+    for channel in np.arange(0,zMax,1):
+        # Total flux
+        tempData = np.copy(cubeData[channel,:,:])
+        apPhot = aperture_photometry(tempData, circObj)
+        # Error
+        tempStat = np.copy(cubeData[channel,:,:])
+        varApPhot = aperture_photometry(tempStat, circObj)
+        # Loading lists
+        specApPhot.append(apPhot['aperture_sum'][0])
+        specVarApPhot.append(varApPhot['aperture_sum'][0])
+
+    # Deleting temporary arrays to clear up memory
+    del tempData
+    del tempStat
+
+    return np.array(specApPhot), np.sqrt(np.array(specVarApPhot))
 
 def quickSpectrumNoBgMask(cubeData,
                           cubeStat,
@@ -529,7 +575,7 @@ def quickSpectrumNoBgMask(cubeData,
         cubeStatTmp[channel, :, :][(maskXY<1)] = 0
 
     fluxObj = np.nansum(cubeDataTmp, axis=(1,2))
-    errFluxObj = np.power(np.nansum(cubeStatTmp, axis=(1, 2)), 0.5)
+    errFluxObj = np.sqrt(np.nansum(cubeStatTmp, axis=(1, 2)))
 
     # Deleting temporary arrays to clear up memory
     del cubeDataTmp
