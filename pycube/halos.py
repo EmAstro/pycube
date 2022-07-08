@@ -174,9 +174,10 @@ def maskHalo(chiCube,
 
     # Filling up mask
     chiCubeTmp = np.copy(chiCube)
-    chiCubeMask = np.zeros_like(chiCube, int)
-    zMax, yMax, xMax = np.shape(chiCubeTmp)
-    for channel in np.arange(0, zMax, 1, int):
+    chiCubeMask = np.zeros_like(chiCube)
+    channel_array = manip.channel_array(chiCubeTmp, 'z')
+    xMax, yMax, zMax = np.shape(chiCube)
+    for channel in channel_array:
         chiCubeTmp[channel, :, :][(badMask == 1)] = np.nan
         chiCubeMask[channel, :, :][(badMask == 1)] = 1
 
@@ -300,11 +301,10 @@ def maskHalo(chiCube,
         maxSChi = threshold
         zMaxSChi, yMaxSChi, xMaxSChi = zPix, yPix, xPix
     del smallChiCubeTmp
-
     print("maskHalo: starting to fill the halo mask")
     # this mask is equal to 1 if the pixel is considered part of the halo
     # equal to 0 if it is not
-    maskHalo = np.zeros_like(chiCube, int)
+    maskHalo = np.zeros_like(chiCube)
     if maxSChi > thresholdHalo[zMaxSChi]:
         maskHalo[zMaxSChi, yMaxSChi, xMaxSChi] = 1
     # The code also generate a 'seed' at the expected position of the
@@ -333,7 +333,7 @@ def maskHalo(chiCube,
         newChiCube = np.copy(chiCube)
         newChiCube[~np.isfinite(newChiCube)] = 0.
         newChiCube[(chiCubeMask == 1)] = 0.
-        newChiCube = newChiCube * maskHaloTemp.astype(float)
+        newChiCube *= maskHaloTemp.astype(float)
         for channel in np.arange(0, zMax):
             maskHalo[channel, :, :][newChiCube[channel, :, :] > thresholdHalo[channel]] = 1
         nConnectedPixelsNew = int(np.nansum(maskHalo))

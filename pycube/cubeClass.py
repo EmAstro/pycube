@@ -36,7 +36,16 @@ class IfuCube:
     @primary.setter
     def primary(self, primary):
         self._primary = primary
-        # self._object = primary.header['OBJECT']
+        #self._object = primary.header['OBJECT']
+
+    @property
+    def source_mask(self):
+        return self._source_mask
+
+    @source_mask.setter
+    def source_mask(self, source_mask):
+        self._source_mask = source_mask
+
 
     def from_fits_file(self):
         """
@@ -120,7 +129,7 @@ class IfuCube:
         if mode == 'median':
             self.background_mode = background.median_background(self.data.data)
         elif mode == 'sextractor':
-            self.background_mode = background.sextractor_background(self.data.data, self.stat.data)
+            self.background_mode = background.sextractor_background(self.data.data, self.stat.data, )
         else:
             raise ValueError
             msgs.warning('Possible values are:\n {}'.format(background.BACKGROUND_MODES))

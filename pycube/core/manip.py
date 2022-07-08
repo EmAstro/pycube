@@ -203,7 +203,7 @@ def collapse_mean_cube(datacube, statcube, min_lambda=None, max_lambda=None):
 
 def location(datacube, x_position=None, y_position=None,
              semi_maj=None, semi_min=None,
-             theta=0, default=10):
+             theta=0., default=10):
     """
     User input function to create elliptical mask of given coordinates for source in image.
 
@@ -265,7 +265,56 @@ def location(datacube, x_position=None, y_position=None,
             mask_array += ellipse_mask
 
     return np.array((mask_array > 0.), dtype=int)
+def annularMask(imgData,
+                x_position,
+                y_position,
+                semi_maj=5.,
+                semi_min=5.,
+                delta_maj=2.,
+                delta_min=2.,
+                theta=0.):
+    """Returning a mask where annuli centered in xObj and yObj with
+    inner axis aObj and bObj and outer axis aObj+deltaAObj and bObj+
+    deltaBObj are marked as 1.
+    Parameters
+    ----------
+    imgData : np.array
+        data in a 2D array. The mask will have the same size
+        of this.
+    x_position : np.array
+        x-location of the sources in pixels
+    y_position : np.array
+        y-location of the sources in pixels
+    semi_maj
+        inner semi-major axis in pixel
+    semi_min
+        inner semi-minor axis in pixel
+    delta_maj
+        witdth of the semi-major axis in pixel
+    delta_min
+        witdth of the semi-minor axis in pixel
+    theta
+        angle wrt the x-axis in degrees
+    Returns
+    -------
+    imgMsk : np.array
+        mask where sources are marked with 1 and background with 0.
+        It has the same dimensions of the input imgData
+    """
 
+    # Creating mask
+    imgMsk = location(imgData, x_position, y_position,
+                      semi_maj=semi_maj + delta_maj, semi_min=semi_min + delta_min,
+                      theta=theta)
+    imgMskInner = location(imgData, x_position, y_position,
+                           semi_maj=semi_maj, semi_min=semi_min,
+                           theta=theta)
+    imgMsk[(imgMskInner>0)] = np.int(0)
+
+    # Cleaning up memory
+    del imgMskInner
+
+    return imgMsk.astype(int)
 
 def check_collapse(datacube, min_lambda, max_lambda):
     """
@@ -281,9 +330,10 @@ def check_collapse(datacube, min_lambda, max_lambda):
         datacopy (np.array):
             collapsed 2D data array
     """
-    datacopy = np.copy(datacube)
-    if datacopy.ndim > 2:
-        datacopy = collapse_cube(datacopy, min_lambda, max_lambda)
+    if datacube.ndim > 2:
+        datacopy = collapse_cube(datacube, min_lambda, max_lambda)
+    else:
+        return datacube
     return datacopy
 
 
@@ -495,7 +545,7 @@ def quickSpectrum(datacube,
 
     specVarApPhot = np.array(specVarApPhot)
     specVarApPhot[~np.isfinite(specVarApPhot)] = np.nanmax(specVarApPhot)
-    return np.array(specApPhot), np.sqrt(specVarApPhot), np.array(specFluxBg)
+    return np.array(specApPhot), np.power(specVarApPhot,0.5), np.array(specFluxBg)
 
 def quickSpectrumNoBg(cubeData,
                       cubeStat,
@@ -544,7 +594,7 @@ def quickSpectrumNoBg(cubeData,
     del tempData
     del tempStat
 
-    return np.array(specApPhot), np.sqrt(np.array(specVarApPhot))
+    return np.array(specApPhot), np.power(np.array(specVarApPhot),0.5)
 
 def quickSpectrumNoBgMask(cubeData,
                           cubeStat,
@@ -719,3 +769,4 @@ def distFromPixel(zPix1, yPix1, xPix1,
     dist = np.sqrt(zDist+yDist+xDist)
 
     return dist
+
