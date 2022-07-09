@@ -15,12 +15,12 @@ from IPython import embed
 def find_sources(datacube, statcube=None,
                  min_lambda=None, max_lambda=None,
                  var_factor=5.,
-                 threshold=7,
-                 sig_detect=1.5,
-                 min_area=16.,
+                 threshold=4,
+                 sig_detect=2.,
+                 min_area=3.,
                  gain=1.1,  # get it from the header
                  deblend_val=0.005,
-                 segmentation_map = 1):
+                 segmentation_map = True):
     """
     Automated scanning of given data and identifies good sources.
     If data is in 3D format, function will collapse given wavelength parameters
@@ -91,7 +91,6 @@ def find_sources(datacube, statcube=None,
     del image_background
     del void_background
     del good_sources
-    if segmentation_map = 1:
     return x_pos, y_pos, maj_axis, min_axis, angle, all_objects
 
 

@@ -96,19 +96,20 @@ def maskHalo(chiCube,
              threshold=2.,
              thresholdType='relative',
              badPixelMask=None,
+             nSigmaExtreme = 5.,
              output='Object',
              debug=False,
              showDebug=False):
     """Given a PSF subtracted X cube (either smoothed or not) the
     macro, after masking some regions, performs a friends of friends
     search for connected pixels above a certain threshold in S/N.
-    The first step is to identify the most significative voxel in
+    The first step is to identify the most significant voxel in
     proximity of the quasar position (given as xPix, yPix, zPix).
     The code assumes that the position of the extended halo is known
     and so started to create the mask of connected pixels from this
-    point and from the most significative voxel within a sperical
+    point and from the most significant voxel within a spherical
     radius of 3.*rBadPix from (xPix, yPix, zPix).
-    From there the macro searches for neighbour pixels that are above
+    From there the macro searches for neighbor pixels that are above
     the threshold and creates a mask for the extended emission.
 
     Inputs:
@@ -176,7 +177,7 @@ def maskHalo(chiCube,
     chiCubeTmp = np.copy(chiCube)
     chiCubeMask = np.zeros_like(chiCube)
     channel_array = manip.channel_array(chiCubeTmp, 'z')
-    xMax, yMax, zMax = np.shape(chiCube)
+    zMax, yMax, xMax = np.shape(chiCube)
     for channel in channel_array:
         chiCubeTmp[channel, :, :][(badMask == 1)] = np.nan
         chiCubeMask[channel, :, :][(badMask == 1)] = 1
@@ -193,8 +194,8 @@ def maskHalo(chiCube,
     # more or less Gaussian. This is NOT true, and will
     # be fixed in the future.
 
-    chiCubeAve, chiCubeMed, chiCubeSig = manip.statFullCube(chiCubeTmp, nSigmaExtreme=5.)
-    chiCubeAveZ, chiCubeMedZ, chiCubeSigZ = manip.statFullCubeZ(chiCubeTmp, nSigmaExtreme=5.)
+    chiCubeAve, chiCubeMed, chiCubeSig = manip.statFullCube(chiCubeTmp, nSigmaExtreme=nSigmaExtreme)
+    chiCubeAveZ, chiCubeMedZ, chiCubeSigZ = manip.statFullCubeZ(chiCubeTmp, nSigmaExtreme=nSigmaExtreme)
     print("maskHalo: the median value of the voxels is: {:+0.4f}".format(chiCubeMed))
     print("          and the sigma is: {:+0.4f}".format(chiCubeSig))
     if thresholdType == 'relative':

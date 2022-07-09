@@ -7,3 +7,4 @@ class VLTMuse(instrument.Instrument):
     data_extension = 'DATA'
     sigma_extension = 'STAT'
 
+

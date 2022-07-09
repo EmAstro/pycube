@@ -336,6 +336,106 @@ def check_collapse(datacube, min_lambda, max_lambda):
         return datacube
     return datacopy
 
+#TODO
+
+# fix smallcube for output with datacube
+def smallCube(datacube, min_lambda=None, max_lambda=None):
+    """
+    Given header, DATA, and STAT the macro cut the cube
+    between minChannel and maxChannel. It also update the
+    wavelength information to be conform to the new size.
+    Note that minChannle and maxChannel can be given both
+    as wavelength and as channels. If the input value is
+    <3000. it will be assumed to be channel number, otherwise
+    wavelength in Angstrom will be considered.
+
+    Inputs:
+    ----------
+        headFull hdu header
+            primary header
+        headData : hdu header
+            fits header for DATA
+        dataData : np.array
+            data in a 3D array
+        headStat : hdu header
+            fits header for STAT
+        dataStat : np.array
+            variance in a 3D array
+        min_lambda : np.int
+            min channel to create collapsed image
+        max_lambda : np.int
+            max channel to create collapsed image
+    Returns:
+    -------
+        headFullSmall : hdu header
+            primary header
+        headDataSmall : hdu header
+            fits header for DATA with corrected CRVAL3
+        dataDataSmall : np.array
+            data in a 3D array trim from minChannel to maxChannel
+        headStatSmall : hdu header
+            fits header for STAT with corrected CRVAL3
+        dataStatSmall : np.array
+            variance in a 3D array trim from minChannel to maxChannel
+    """
+    headFull = datacube.primary.header
+    headData = datacube.data.header
+    dataData = datacube.data.data
+    headStat = datacube.stat.header
+    dataStat = datacube.stat.data
+    # Check for the size of the cube
+    zMax, yMax, xMax = np.shape(dataData)
+
+    # Setting min and max channels for collapsing
+    if (min_lambda is not None) & (max_lambda is not None):
+        minChannelSort = np.min([min_lambda, max_lambda])
+        maxChannelSort = np.max([min_lambda, max_lambda])
+        min_lambda, max_lambda = minChannelSort, maxChannelSort
+        del minChannelSort
+        del maxChannelSort
+    # set values in case of Nones
+    if min_lambda is None:
+        print("smallCube: minChannel set to 0")
+        min_lambda = np.int(0)
+    if max_lambda is None:
+        print("smallCube: maxChannel set to {}".format(np.int(zMax)))
+        max_lambda = np.int(zMax)
+    # If input values are larger than 3000., the macro converts from
+    # wavelength in ang. to channel number.
+    if min_lambda>3000.:
+        print("smallCube: Converting min wavelength in Ang. to channel number")
+        min_lambda = convert_to_channel(header, min_lambda)
+    else:
+        min_lambda = np.int(min_lambda)
+    if max_lambda>3000.:
+        print("smallCube: Converting Max wavelength in Ang. to channel number")
+        max_lambda = convert_to_channel(header, max_lambda)
+    else:
+        max_lambda = np.int(max_lambda)
+    # Check for upper and lower limits
+    if min_lambda < 0:
+        print("smallCube: Negative value for minChannel set to 0")
+        min_lambda = np.int(0)
+    if max_lambda > (zMax + 1):
+        print("smallCube: maxChannel is outside the cube size. Set to {}".format(np.int(zMax)))
+        max_lambda = np.int(zMax)
+
+    smallCubeCRVAL3 = np.float(channels2wave(headData, min_lambda))
+    print("smallCube: Creating smaller cube")
+    print("           The old pivot wavelength was {}".format(headData['CRVAL3']))
+    print("           The new pivot wavelength is {}".format(smallCubeCRVAL3))
+    # Header
+    headFullSmall = copy.deepcopy(headFull)
+    # DATA
+    headDataSmall = copy.deepcopy(headData)
+    headDataSmall['CRVAL3'] = smallCubeCRVAL3
+    dataDataSmall = np.copy(dataData[min_lambda:max_lambda, :, :])
+    # STAT
+    headStatSmall = copy.deepcopy(headStat)
+    headStatSmall['CRVAL3'] = smallCubeCRVAL3
+    dataStatSmall = np.copy(dataStat[min_lambda:max_lambda, :, :])
+
+    return headFullSmall, headDataSmall, dataDataSmall, headStatSmall, dataStatSmall
 
 def dust_correction(datacube):
     """
@@ -510,7 +610,6 @@ def quickSpectrum(datacube,
     specApPhot = []
     specVarApPhot = []
     specFluxBg = []
-
     posObj = [x_pos, y_pos]
     circObj = CircularAperture(posObj, r=radius_pos)
     annuObj = CircularAnnulus(posObj, r_in=inner_rad, r_out=outer_rad)
@@ -770,3 +869,38 @@ def distFromPixel(zPix1, yPix1, xPix1,
 
     return dist
 
+def celestialToPixel(datacube, ra, dec):
+    """
+    Reads in a datacube and user input of an object in RA and DEC.
+    Returns to user the converted X, Y position of the object
+    Utilizes Header data in the fits file of the datacube entered.
+    (specific)
+
+    Inputs:
+        datacube(np.array):
+            3D array
+        ra(float):
+            Right ascension of object in degrees
+        dec(float):
+            Declination of object in degrees
+    Returns(floats):
+        x_pos X pixel coordinate of object
+        y_pos Y pixel coordinate of object
+    """
+    headers = datacube.data.header
+
+    raRef = headers['CRVAL1']
+    raConversion = headers['CD1_1']
+    xRef = ['CRPIX1']
+
+    decRef = headers['CRVAL2']
+    decConversion = headers['CD2_2']
+    yRef = headers['CRPIX2']
+
+    raDif = ra - raRef
+    decDif = dec - decRef
+
+    x_pos = (raDif/raConversion) + xRef
+    y_pos = (decDif/decConversion) + yRef
+
+    return x_pos, y_pos

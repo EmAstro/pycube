@@ -125,6 +125,9 @@ class IfuCube:
         self.hdul.append(self.source_mask)
         self.hdul.append(self.source_background)
 
+    #def save_halo(self):
+
+
     def background(self, mode='median'):
         if mode == 'median':
             self.background_mode = background.median_background(self.data.data)
