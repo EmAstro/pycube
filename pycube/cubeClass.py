@@ -51,9 +51,13 @@ class IfuCube:
         """
         Opens .FITS file and separates information by primary, data, and stat.
 
-        Inputs:
-            fits_filename: .FITS file to assign self parameter to.
-        Assigns:
+        Parameters
+        ----------
+            fits_filename : str
+            .FITS file to assign self parameter to.
+
+        Returns
+        -------
             hdul to open data file
             Primary row of file
             Data row of file
@@ -73,40 +77,42 @@ class IfuCube:
           Uses statBg from psf.py to generate the source mask and the background
           image with sources removed and appends to self.hdul for easy access
 
-        Inputs:
-            min_lambda (int):
+        Parameters
+        ----------
+        min_lambda : int
             min channel to create the image where to detect sources
-        max_lambda (int):
+        max_lambda : int
             max channel to create the image where to detect sources
-        maskZ
+        maskZ : int, bool, optional
             when 1 (or True), this is a channel to be removed
-        maskXY
+        maskXY : int, bool, optional
             when 1 (or True), this spatial pixel will remove from
             the estimate of the b/g values
-        sigSourceDetection (float):
+        sigSourceDetection : float
             detection sigma threshold for sources in the
             collapsed cube. Defaults is 5.0
-        minSourceArea (float):
+        minSourceArea : float
             min area for source detection in the collapsed
             cube. Default is 16.
-        sizeSourceMask (float):
+        sizeSourceMask : float
             for each source, the model will be created in an elliptical
             aperture with size sizeSourceMask time the semi-minor and semi-major
-            axis of the detection. Default is 6.
-        maxSourceSize (float):
+            axis of the detection (default is 6.)
+        maxSourceSize : float
             sources with semi-major or semi-minor axes larger than this
-            value will not be considered in the foreground source model.
-            Default is 50.
-        maxSourceEll (float):
+            value will not be considered in the foreground source model (default is 50.)
+        maxSourceEll : float
             sources with ellipticity larger than this value will not be
             considered in the foreground source model. Default is 0.9.
-        edges (int):
+        edges : int
             frame size removed to avoid problems related to the edge
             of the image
-        output (string):
+        output : string
             root file name for output
-        Outputs:
-            Attaches source mask and source background to hdul.
+        Returns
+        -------
+        astropy.hdul
+            Attaches source mask and source background to hdul
 
         """
 
