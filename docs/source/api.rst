@@ -1,3 +1,6 @@
+.. include:: include/links.rst
+
+
 The pycube API reference
 ========================
 

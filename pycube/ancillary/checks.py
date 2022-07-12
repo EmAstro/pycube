@@ -16,6 +16,7 @@ def fits_file_is_valid(fits_file, verify_fits=False, overwrite=False):
     r"""Check if a file exists and has a valid extension
 
     The option `verify_fits` checks the header of the fits file using `astropy.io.fits.verify`
+
     Args:
         fits_file (str): fits file you would like to check
         verify_fits (bool): if set to `True`, it will verify that the fits file is complaint to the FITS standard.
@@ -56,11 +57,12 @@ def fits_file_is_valid(fits_file, verify_fits=False, overwrite=False):
 
 
 def check_checksums(hdul):
-    r"""Test if the `datasum` and `checksum` keywords in a `HDUList` are present and up-to-date
+    r"""Test if the `datasum` and `checksum` keywords in a `astropy.io.fits.HDUList`_ are present and up-to-date
+
     Args:
-        hdul (`HDUList`_): list of `astropy`_ HDUs to be checked
+        hdul (`astropy.io.fits.HDUList`_): list of `astropy`_ HDUs to be checked
     Returns:
-        bool: `True` all the HDUs in the input `HDUList`_ have the correct `datasum` and `checksum`
+        bool: `True` all the HDUs in the input `astropy.io.fits.HDUList`_ have the correct `datasum` and `checksum`
     """
     is_good_checksum = True
     for hdu in hdul:
