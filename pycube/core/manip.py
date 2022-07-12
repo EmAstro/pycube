@@ -66,13 +66,13 @@ def find_sigma(data):
     return np.sqrt(np.nanmedian(data))
 
 
-def channel_array(datacube, channel):
+def channel_array(datacontainer, channel):
     """Given a datacontainers, and a channel (x,y,z), creates a  numpy array of values of channel range
 
     Parameters
     ----------
-    datacontainers : np.array
-        3D datacontainers ~ .Fits file
+    datacontainer : np.array
+        3D datacontainer ~ .Fits file
     channel : str
         Dimension name (x or X, y or Y, z or Z)
 
@@ -82,7 +82,7 @@ def channel_array(datacube, channel):
         Range array of length of given dimension
     """
 
-    z_max, y_max, x_max = np.shape(datacube)
+    z_max, y_max, x_max = np.shape(datacontainer)
     if channel == 'x' or channel == 'X':
         channel_range = np.arange(0, x_max, 1, int)
     elif channel == 'y' or channel == 'Y':
@@ -416,12 +416,12 @@ def smallCube(datacontainer, min_lambda=None, max_lambda=None):
     # wavelength in ang. to channel number.
     if min_lambda>3000.:
         print("smallCube: Converting min wavelength in Ang. to channel number")
-        min_lambda = convert_to_channel(dataData, min_lambda)
+        min_lambda = convert_to_channel(datacontainer.data)
     else:
         min_lambda = np.int(min_lambda)
     if max_lambda>3000.:
         print("smallCube: Converting Max wavelength in Ang. to channel number")
-        max_lambda = convert_to_channel(dataData, max_lambda)
+        max_lambda = convert_to_channel(datacontainer.data)
     else:
         max_lambda = np.int(max_lambda)
     # Check for upper and lower limits
@@ -432,7 +432,7 @@ def smallCube(datacontainer, min_lambda=None, max_lambda=None):
         print("smallCube: maxChannel is outside the cube size. Set to {}".format(np.int(zMax)))
         max_lambda = np.int(zMax)
 
-    smallCubeCRVAL3 = np.float(convert_to_wave(dataData, min_lambda))
+    smallCubeCRVAL3 = np.float(convert_to_wave(datacontainer.data))
     print("smallCube: Creating smaller cube")
     print("           The old pivot wavelength was {}".format(headData['CRVAL3']))
     print("           The new pivot wavelength is {}".format(smallCubeCRVAL3))
@@ -577,7 +577,7 @@ def quickApPhotmetry(image_data,
         flat_data_bg = data_bg[data_bg > bad_bg].flatten()
         mean_bg, median_bg, sigma_bg = sigma_clipped_stats(flat_data_bg)
         # Variance
-        varApPhot = aperture_photometry(image_data, circle_obj)
+        varApPhot = aperture_photometry(image_var, circle_obj)
         # Filling arrays
         obj_flux[index] = ap_phot['aperture_sum'][0] - (median_bg * circle_obj.area)
         obj_err_flux[index] = np.power(np.array(varApPhot['aperture_sum'][0]), 0.5)
@@ -937,7 +937,7 @@ def celestialToPixel(datacontainer, ra, dec):
 
     raRef = headers['CRVAL1']
     raConversion = headers['CD1_1']
-    xRef = ['CRPIX1']
+    xRef = headers['CRPIX1']
 
     decRef = headers['CRVAL2']
     decConversion = headers['CD2_2']
@@ -945,8 +945,8 @@ def celestialToPixel(datacontainer, ra, dec):
 
     raDif = ra - raRef
     decDif = dec - decRef
-
     x_pos = (raDif/raConversion) + xRef
     y_pos = (decDif/decConversion) + yRef
-
     return x_pos, y_pos
+
+
