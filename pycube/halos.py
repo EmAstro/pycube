@@ -477,21 +477,13 @@ def spectralMaskHalo(maskHalo):
     return maskHalo2D, maskHaloMinZ, maskHaloMaxZ
 
 
-def cleanMaskHalo(maskHalo,
-                  deltaZMin=2,
-                  minGood=100,
-                  channelMin=None,
-                  channelMax=None,
-                  debug=False,
-                  showDebug=False):
+def cleanMaskHalo(maskHalo, deltaZMin=2, minGood=100, channelMin=None, channelMax=None, debug=False, showDebug=False):
     """
     Given the halo mask, the macro performs some quality
     check:
-     - if a spatial pixel (x,y) has less than deltaZmin consecutive
-       voxels identified along the z-axis, this will be removed from
-       the mask
-     - If the total number of voxels is less than minGood the halo
-       is considered as not detected and the mask is cleaned.
+    * If a spatial pixel (x,y) has less than deltaZmin consecutive voxels identified along the z-axis, this will
+    be removed from the mask
+    * If the total number of voxels is less than minGood the halo is considered as not detected and the mask is cleaned.
 
     Parameters
     ----------
@@ -513,7 +505,7 @@ def cleanMaskHalo(maskHalo,
 
     print("cleanMaskHalo: cleaning halo mask")
 
-    if (np.nansum(maskHalo) < np.int(minGood / 2.)):
+    if np.nansum(maskHalo) < np.int(minGood / 2.):
         print("cleanMaskHalo: not enough voxels in the mask")
         return np.zeros_like(maskHalo, int)
 
@@ -576,16 +568,22 @@ def makeMoments(headCube,
     """ Given a PSF-Subtracted datacube, this macro extracts the moment 0, 1, 2
     maps of the halo identified by maskHalo.
     Where:
-      mom0: is the integrated value
-            mom0 = sum[Flux*dlambda]
-            where sum is the sum along the channels
-      mom1: is the velocity field
-            mom1 = sum[DV*Flux] / sum[Flux]
-            where DV is the velocity difference of a channel from the
-            centralWave:
-            DV = (wavelength - centralWave) / centralWave * speed of light
-      mom2: is the velocity dispersion
-            mom2 = sqrt[ sum[ Flux*(DV-mom1)**2. ] / sum[Flux] ]
+
+    * mom0: is the integrated value
+     .. math::
+         mom0 = sum[Flux*dlambda]
+      where sum is the sum along the channels
+
+    * mom1: is the velocity field
+     .. math::
+         mom1 = sum[DV*Flux] / sum[Flux]
+      where DV is the velocity difference of a channel from the centralWave
+     .. math::
+         DV = (wavelength - centralWave) / centralWave * speed of light
+
+    * mom2: is the velocity dispersion
+    .. math::
+         mom2 = sqrt[ sum[ Flux*(DV-mom1)**2. ] / sum[Flux] ]
 
     Parameters
     ----------
@@ -596,9 +594,8 @@ def makeMoments(headCube,
     statCube : np.array
         variance in a 3D array
     maskHalo : np.array
-        mask where the detected extended emission is set to 1 and
-        the background is set to 0. It has the same shape of the
-        input dataCube.
+        mask where the detected extended emission is set to 1 and the background is set to 0. It has the same shape
+        of the input dataCube.
     centralWave : float
         wavelength in Ang. from which to calculate the
         velocity shifts. If None, the macro will calculate
