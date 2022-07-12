@@ -12,48 +12,50 @@ import gc
 from IPython import embed
 
 
-def find_sources(datacube, statcube=None,
+def find_sources(datacontainer, statcube=None,
                  min_lambda=None, max_lambda=None,
                  var_factor=5.,
-                 threshold=7,
-                 sig_detect=1.5,
-                 min_area=16.,
+                 threshold=4.,
+                 sig_detect=2.,
+                 min_area=3.,
                  gain=1.1,  # get it from the header
-                 deblend_val=0.005,
-                 segmentation_map = 1):
-    """
-    Automated scanning of given data and identifies good sources.
+                 deblend_val=0.005):
+    """Automated scanning of given data and identifies good sources.
     If data is in 3D format, function will collapse given wavelength parameters
 
-    Inputs:
-        datacontainers (array):
+    Parameters
+    ----------
+    datacontainer : np.array
             data cube. 2D or 3D
-        statcube (array):
-            variance cube. 2D or 3D. optional ~ will generate from data if not passed
-            defaults to None
-        min_lambda (float):
-            minimum wavelength value to collapse 3D image, default is None
-        max_lambda (float):
-            maximum wavelength value to collapse 3D image, default is None
-        var_factor (int / float):
-            affects generated variance, if variance is auto-generated from image data, default 5.
-        sig_detect (int / float):
-            minimum signal detected by function, default 3.5
-        min_area (int / float):
-            minimum area determined to be a source, default 16
-        gain:
-            can be pulled from Fits file, default 1.1
-        deblend_val:
-            value for sep extractor, minimum contrast ratio for object blending, default 0.005
-    Returns:
-        xPix (np.array):
-        yPix (np.array):
-        aPix (np.array):
-        bPix (np.array):
-        angle (np.array):
-        all_objects (np.array):
+    statcube : np.array
+        variance cube. 2D or 3D. optional ~ will generate from data if not passed (default is None)
+    min_lambda : float
+        minimum wavelength value to collapse 3D image (default is None)
+    max_lambda : float
+        maximum wavelength value to collapse 3D image (default is None)
+    var_factor : int, float, optional
+        affects generated variance, if variance is auto-generated from image data (default 5.)
+    threshold : int, float, optional
+        threshold value for sigma detection with seXtractor background subtraction (default is 4.)
+    sig_detect : int, float, optional
+        minimum signal detected by function (default is 2.)
+    min_area : int, float, optional
+        minimum area determined to be a source (default is 3.)
+    gain : float, optional
+        can be pulled from Fits file (default is 1.1)
+    deblend_val : float, optional
+            value for sep extractor, minimum contrast ratio for object blending (default is 0.005)
+
+    Returns
+    -------
+    xPix : np.array
+    yPix : np.array
+    aPix : np.array
+    bPix : np.array
+    angle : np.array
+    all_objects : np.array
     """
-    data_background = manip.check_collapse(datacube, min_lambda, max_lambda)
+    data_background = manip.check_collapse(datacontainer, min_lambda, max_lambda)
 
     if statcube is not None:
         var_background = manip.check_collapse(statcube, min_lambda, max_lambda)
@@ -91,7 +93,6 @@ def find_sources(datacube, statcube=None,
     del image_background
     del void_background
     del good_sources
-    if segmentation_map = 1:
     return x_pos, y_pos, maj_axis, min_axis, angle, all_objects
 
 
@@ -103,6 +104,24 @@ def background_cube(datacube,
                     maxSourceSize=50.,
                     maxSourceEll=0.9,
                     edges=10):
+    """
+
+    Parameters
+    ----------
+
+    datacube:
+    statcube:
+    sigSourceDetection:
+    minSourceArea:
+    sizeSourceMask:
+    maxSourceSize:
+    maxSourceEll:
+    edges:
+
+    Returns
+    -------
+
+    """
     z_max, y_max, x_max = np.shape(datacube)
     cube_bg = np.full_like(datacube, np.nan)
     mask_bg = np.full_like(datacube, np.nan)
@@ -155,56 +174,57 @@ def statBg(dataCube,
            output='Object',
            debug=False,
            showDebug=False):
-    """
-    This estimates the sky background of a MUSE cube after removing sources.
+    """This estimates the sky background of a MUSE cube after removing sources.
     Sources are detected in an image created by collapsing the cube between minChannel
     and maxChannel (considering maskZ as mask for bad channels).
     Average, std, and median will be saved.
 
-    Inputs:
-        dataCube (np.array):
-            data in a 3D array
-        statCube (np.array):
-            variance in a 3D array
-        min_lambda (int):
-            min channel to create the image where to detect sources
-        max_lambda (int):
-            max channel to create the image where to detect sources
-        maskZ
-            when 1 (or True), this is a channel to be removed
-        maskXY
-            when 1 (or True), this spatial pixel will remove from
-            the estimate of the b/g values
-        sigSourceDetection (float):
-            detection sigma threshold for sources in the
-            collapsed cube. Defaults is 5.0
-        minSourceArea (float):
-            min area for source detection in the collapsed
-            cube. Default is 16.
-        sizeSourceMask (float):
-            for each source, the model will be created in an elliptical
-            aperture with size sizeSourceMask time the semi-minor and semi-major
-            axis of the detection. Default is 6.
-        maxSourceSize (float):
-            sources with semi-major or semi-minor axes larger than this
-            value will not be considered in the foreground source model.
-            Default is 50.
-        maxSourceEll (float):
-            sources with ellipticity larger than this value will not be
-            considered in the foreground source model. Default is 0.9.
-        edges (int):
-            frame size removed to avoid problems related to the edge
-            of the image
-        output (string):
-            root file name for outputs
-    Returns:
-        averageBg, medianBg, stdBg, varBg, pixelsBg (np.array):
-            average, median, standard deviation, variance, and number of pixels after masking
-            sources, edges, and NaNs of the background.
-        maskBg2D (np.array):
-            2D mask used to determine the background region. This mask has 1 if there is
-            a source or is on the edge of the cube. It is 0 if the pixel is considered
-            in the background estimate.
+    Parameters
+    ----------
+    dataCube : np.array
+        data in a 3D array
+    statCube : np.array
+        variance in a 3D array
+    min_lambda : int
+        min channel to create the image where to detect sources
+    max_lambda : int
+        max channel to create the image where to detect sources
+    maskZ : int, bool, optional
+        when 1 (or True), this is a channel to be removed (default is None)
+    maskXY : int, bool, optional
+        when 1 (or True), this spatial pixel will remove from
+        the estimate of the b/g values (default is None)
+    sigSourceDetection : float
+        detection sigma threshold for sources in the
+        collapsed cube (default is 5.0)
+    minSourceArea : float
+        min area for source detection in the collapsed
+        cube (default is 16)
+    sizeSourceMask : float
+        for each source, the model will be created in an elliptical
+        aperture with size sizeSourceMask time the semi-minor and semi-major
+        axis of the detection. Default is 6.
+    maxSourceSize : float
+        sources with semi-major or semi-minor axes larger than this
+        value will not be considered in the foreground source model (default is 50)
+    maxSourceEll : float
+        sources with ellipticity larger than this value will not be
+        considered in the foreground source model (default is 0.9)
+    edges : int
+        frame size removed to avoid problems related to the edge
+        of the image
+    output : string
+        root file name for output
+
+    Returns
+    -------
+    averageBg, medianBg, stdBg, varBg, pixelsBg : np.array
+        average, median, standard deviation, variance, and number of pixels after masking
+        sources, edges, and NaNs of the background.
+    maskBg2D : np.array
+        2D mask used to determine the background region. This mask has 1 if there is
+        a source or is on the edge of the cube. It is 0 if the pixel is considered
+        in the background estimate.
     """
 
     print("statBg: Starting estimate of b/g stats")
@@ -299,7 +319,7 @@ def statBg(dataCube,
     return averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage
 
 
-def subtractBg(datacube,
+def subtractBg(datacontainer,
                statcube=None,
                min_lambda=None,
                max_lambda=None,
@@ -314,67 +334,67 @@ def subtractBg(datacube,
                output='Object',
                debug=False,
                showDebug=False):
-    """
-    This macro remove residual background in the cubes and fix the variance
+    """This macro remove residual background in the cubes and fix the variance
     vector after masking sources. Sources are detected in an image created by
     collapsing the cube between min_lambda and max_lambda (considering maskZ as
     mask for bad channels). If statCube is none, it will be created and for each
     channel, the variance of the background will be used.
 
-   Inputs:
-        datacontainers (np.array):
-            data in a 3D array
-        statcube (np.array):
-            variance in a 3D array
-        min_lambda (int):
-            min channel to create the image to detected sources
-        max_lambda (int):
-            max channel to create the image to detected sources
-        maskZ
-            when 1 (or True), this is a channel to be removed while
-            collapsing the cube to detect sources
-        maskXY
-            when 1 (or True), this spatial pixel will be removed from
-            the estimate of the b/g values
-        sigSourceDetection (float):
-            detection sigma threshold for sources in the
-            collapsed cube. Defaults is 5.0
-        minSourceArea (float):
-            min area for source detection in the collapsed
-            cube. Default is 16.
-        sizeSourceMask (float):
-            for each source, the model will be created in an elliptical
-            aperture with size sizeSourceMask time the semi-minor and semi-major
-            axis of the detection. Default is 6.
-        maxSourceSize (float):
-            sources with semi-major or semi-minor axes larger than this
-            value will not be considered in the foreground source model.
-            Default is 50.
-        maxSourceEll (float):
-            sources with ellipticity larger than this value will not
-            be considered in the foreground source model. Default is 0.9.
-        edges (int):
-            frame size removed to avoid problems related to the edge
-            of the image
-        output (string):
-            root file name for outputs
-    Returns:
-        dataCubeBg, statCubeBg (np.array):
-            3D data and variance cubes after residual sky subtraction and
-            variance rescaled to match the background variance.
-        averageBg, medianBg, stdBg, varBg, pixelsBg (np.array):
-            average, median, standard deviation, variance, and number of pixels after masking
-            sources, edges, and NaNs of the background.
-        maskBg2D (np.array):
-            2D mask used to determine the background region. This mask has 1 if there is
-            a source or is on the edge of the cube. It is 0 if the pixel is considered
-            in the background estimate.
+   Parameters
+   ----------
+    datacontainer : np.array
+        data in a 3D array
+    statcube : np.array
+        variance in a 3D array
+    min_lambda : int
+        min channel to create the image to detected sources
+    max_lambda : int
+        max channel to create the image to detected sources
+    maskZ : int, bool, optional
+        when 1 (or True), this is a channel to be removed while
+        collapsing the cube to detect sources (default is None)
+    maskXY : int, bool, optional
+        when 1 (or True), this spatial pixel will be removed from
+        the estimate of the b/g values (default is None)
+    sigSourceDetection : float
+        detection sigma threshold for sources in the
+        collapsed cube (default is 5.0)
+    minSourceArea : float
+        min area for source detection in the collapsed cube (default is 16.)
+    sizeSourceMask : float
+        for each source, the model will be created in an elliptical
+        aperture with size sizeSourceMask time the semi-minor and semi-major
+        axis of the detection (default is 6.)
+    maxSourceSize : float
+        sources with semi-major or semi-minor axes larger than this
+        value will not be considered in the foreground source model (default is 50.)
+    maxSourceEll : float
+        sources with ellipticity larger than this value will not
+        be considered in the foreground source model (default is 0.9)
+    edges : int
+        frame size removed to avoid problems related to the edge
+        of the image (default is 60)
+    output : string
+        root file name for outputs
+
+    Returns
+    -------
+    dataCubeBg, statCubeBg : np.array
+        3D data and variance cubes after residual sky subtraction and
+        variance rescaled to match the background variance.
+    averageBg, medianBg, stdBg, varBg, pixelsBg : np.array
+        average, median, standard deviation, variance, and number of pixels after masking
+        sources, edges, and NaNs of the background.
+    maskBg2D : np.array
+        2D mask used to determine the background region. This mask has 1 if there is
+        a source or is on the edge of the cube. It is 0 if the pixel is considered
+        in the background estimate.
     """
 
     print("subtractBg: Starting the procedure to subtract the background")
 
     # Getting spectrum of the background
-    averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage = statBg(datacube,
+    averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage = statBg(datacontainer,
                                                                                 statCube=statcube,
                                                                                 min_lambda=min_lambda,
                                                                                 max_lambda=max_lambda,
@@ -391,13 +411,13 @@ def subtractBg(datacube,
                                                                                 showDebug=showDebug)
 
     print("subtractBg: Subtracting background from dataCube")
-    datacopy = np.copy(datacube)
-    z_max, y_max, x_max = np.shape(datacube)
+    datacopy = np.copy(datacontainer)
+    z_max, y_max, x_max = np.shape(datacontainer)
     for channel in range(0, z_max):
         datacopy[channel, :, :] -= medianBg[channel]
     if statcube is None:
         print("subtractBg: Creating statCube with variance inferred from background")
-        statcopy = np.copy(datacube)
+        statcopy = np.copy(datacontainer)
         for channel in range(0, z_max):
             statcopy[channel, :, :] = varBg[channel]
     else:
@@ -447,7 +467,7 @@ def subtractBg(datacube,
     return datacopy, statcopy, averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage
 
 
-def makePsf(datacube,
+def makePsf(datacontainer,
             statcube,
             x_pos,
             y_pos,
@@ -462,59 +482,61 @@ def makePsf(datacube,
             norm=True,
             debug=False,
             showDebug=False):
-    """
-    Given a Cube, the macro collapses it along the z-axis between minChannel and
+    """Given a Cube, the macro collapses it along the z-axis between minChannel and
     maxChannel. If maskZ is given, channels masked as 1 (or True) are removed.
     if cType is set to 'average', the macro uses to STAT information to perform a
     weighted mean along the velocity axis. In other words, each spaxel of the resulting
     image will be the weighted mean spectrum of that spaxels along the wavelengths.
     If norm is 'True' the macro normalize the flux of the PSF within radius_pos = 1.
 
-   Inputs:
-        datacontainers (np.array):
-            data in a 3D array
-        statcube (np.array):
-            variance in a 3D array
-        xObj (float):
-            x-location of the source in pixel
-        yObj (float):
-            y-location of the source in pixel
-        min_lambda (int):
-            min channel to create collapsed image
-        max_lambda (int):
-            max channel to create collapsed image
-        maskZ
-            when 1 (or True), this is a channel to be removed
-        rObj (float):
-            radius where to perform the aperture photometry
-        rIbg (float):
-            inner radius of the background region in pixel
-        rObg (float):
-            outer radius of the background region in pixel
-        rPsf (float):
-            radius of the PSF image to be created. Outside
-            these pixels values are set to zero
-        cType(str):
-            type of combination for PSF creation:
-            'average' is weighted average
-            'sum' is direct sum of all pixels
-        norm (bool):
-            if 'True' normalizes the central regions of the
-            PSF to 1.
-    Returns:
-        psfData, psfStat (np.array):
-            PSF data and variance images
+    Parameters
+    ----------
+    datacontainer : np.array
+        data in a 3D array
+    statcube : np.array
+        variance in a 3D array
+    x_pos : float
+        x-location of the source in pixel
+    y_pos : float
+        y-location of the source in pixel
+    min_lambda : int, optional
+        min channel to create collapsed image (default is None)
+    max_lambda : int, optional
+        max channel to create collapsed image (default is None)
+    maskZ
+        when 1 (or True), this is a channel to be removed (default is None)
+    radius_pos : float
+        radius where to perform the aperture photometry (default is 2.)
+    inner_rad : float
+        inner radius of the background region in pixel (default is 10.)
+    outer_rad : float
+        outer radius of the background region in pixel (default is 15.)
+    rPsf : float
+        radius of the PSF image to be created. Outside
+        these pixels values are set to zero (default is 50.)
+    cType : str
+        type of combination for PSF creation:
+        'average' is weighted average
+        'sum' is direct sum of all pixels
+    norm : bool
+        if 'True' normalizes the central regions of the
+        PSF to 1 (default is True)
+
+    Returns
+    -------
+    psfData, psfStat : np.array
+        PSF data and variance images
     """
 
     print("makePsf: Creating PSF model")
 
     if cType == 'sum':
         print("makePsf: Summing channels")
-        psf_data = manip.collapse_cube(datacube, min_lambda=min_lambda, max_lambda=max_lambda)
+        psf_data = manip.collapse_cube(datacontainer, min_lambda=min_lambda, max_lambda=max_lambda)
         psf_stat = manip.collapse_cube(statcube, min_lambda=min_lambda, max_lambda=max_lambda)
     else:
         print("makePsf: Average combining channels")
-        psf_data, psf_stat = manip.collapse_mean_cube(datacube, statcube,
+        psf_data, psf_stat = manip.collapse_mean_cube(datacontainer, statcube,
                                                       min_lambda=min_lambda, max_lambda=max_lambda)
 
     psf_flux, psf_err_flux, psf_ave_flux = manip.quickApPhotmetry(psf_data, psf_stat, x_pos=x_pos, y_pos=y_pos,
@@ -608,9 +630,9 @@ def cleanPsf(dataCube,
              psfModel,
              x_pos,
              y_pos,
-             rPsf=2.,
-             rIbg=10.,
-             rObg=15.,
+             radius_pos=2.,
+             inner_rad=10.,
+             outer_rad=15.,
              bgPsf=True,
              debug=False,
              showDebug=False):
@@ -619,29 +641,33 @@ def cleanPsf(dataCube,
     one within rPsf and that the PSF model is centered in the same location
     of the object you want to remove. This will be improved in the future.
 
-    Inputs:
+    Parameters
+    ----------
+    dataCube : np.array
+        data in a 3D array
+    statCube : np.array
+        variance in a 3D array
+    psfModel : np.array
+        array from running makePsf to be reduced in this function
+    x_pos : float
+        x-location of the source in pixel
+    y_pos : float
+        y-location of the source in pixel
+    radius_pos : float
+        radius where to perform the aperture photometry
+        to remove the PSF contribution (default is 2.)
+    inner_rad : float
+        inner radius of the background region in pixel (default is 10.)
+    outer_rad : float
+        outer radius of the background region in pixel (default is 15.)
+    bgPsf : bool
+        if True, an additional local background subtraction will be
+        performed around the source (default is True)
 
-        dataData(np.array):
-            data in a 3D array
-        statCube(np.array):
-            variance in a 3D array
-        xPsf(float):
-            x-location of the source in pixel
-        yPsf(float):
-            y-location of the source in pixel
-        rPsf(float):
-            radius where to perform the aperture photometry
-            to remove the PSF contribution.
-        rIbg(float):
-            inner radius of the background region in pixel
-        rObg(float):
-            outer radius of the background region in pixel
-        bgPsf(bool):
-            if True, an additional local background subtraction will be
-            performed around the source. Default is True
-    Returns:
-        psfSubCube, psfModel(np.arrays):
-            PSF subtracted cube and PSF model cube
+    Returns
+    -------
+    psfSubCube, psfModel : np.array
+        PSF subtracted cube and PSF model cube
     """
 
     print("cleanPsf: PSF subtraction on cube")
@@ -656,14 +682,14 @@ def cleanPsf(dataCube,
         fluxSource, errFluxSource, bgFluxSource = manip.quickSpectrum(dataCube, statCube,
                                                                       x_pos,
                                                                       y_pos,
-                                                                      radius_pos=rPsf,
-                                                                      inner_rad=rIbg,
-                                                                      outer_rad=rObg)
+                                                                      radius_pos=radius_pos,
+                                                                      inner_rad=inner_rad,
+                                                                      outer_rad=outer_rad)
     else:
         fluxSource, errFluxSource = manip.quickSpectrumNoBg(dataCube, statCube,
                                                             x_pos,
                                                             y_pos,
-                                                            radius_pos=rPsf)
+                                                            radius_pos=radius_pos)
 
     for channel in range(0,zMax):
         # selecting only where the source is significantly detected
@@ -686,20 +712,20 @@ def cleanPsf(dataCube,
         axImag = plt.subplot2grid((1, 3), (0, 0), colspan=1)
         axSpec = plt.subplot2grid((1, 3), (0, 1), colspan=2)
 
-        modelTempXMin, modelTempXMax = int(x_pos - rIbg), int(x_pos + rIbg)
-        modelTempYMin, modelTempYMax = int(y_pos - rIbg), int(y_pos + rIbg)
+        modelTempXMin, modelTempXMax = int(x_pos - inner_rad), int(x_pos + inner_rad)
+        modelTempYMin, modelTempYMax = int(y_pos - inner_rad), int(y_pos + inner_rad)
         modelTemp = np.copy(psfModel[modelTempYMin:modelTempYMax, modelTempXMin:modelTempXMax])
         axImag.imshow(modelTemp,
                       cmap="Greys", origin="lower",
                       vmin=0.,
-                      vmax=1./(np.pi*rPsf*rPsf))
+                      vmax=1./(np.pi * radius_pos * radius_pos))
         axImag.set_xlabel(r"X [Pixels]", size=30)
         axImag.set_ylabel(r"Y [Pixels]", size=30)
 
         axSpec.plot(fluxSource, color='black', zorder=3, label='Flux')
         axSpec.plot(errFluxSource, color='gray', alpha=0.5, zorder=2, label='Error')
         if bgPsf:
-            axSpec.plot(bgFluxSource*(np.pi*rPsf*rPsf), color='red', alpha=0.5, zorder=1, label='b/g')
+            axSpec.plot(bgFluxSource * (np.pi * radius_pos * radius_pos), color='red', alpha=0.5, zorder=1, label='b/g')
         axSpec.legend()
         axSpec.set_xlabel(r"Channel", size=30)
         axSpec.set_ylabel(r"Flux", size=30)

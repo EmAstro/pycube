@@ -44,22 +44,24 @@ def smoothChiCube(dataCube,
     values in the dataCube are converted to zeros, while the
     NaNs in the statCube to nanmax(statCube).
 
-    Inputs:
-        dataData(np.array):
-            data in a 3D array
-        statCube(np.array):
-            variance in a 3D array
-        sSmooth(np.float):
-            smooth length in pixel in the spatial direction
-        vSmooth(np.float):
-            smooth length in pixel in the velocity direction
-        truncate(np.float):
-            number of sigma after which the smoothing kernel
-            is truncated
+    Parameters
+    ----------
+    dataCube: np.array
+        data in a 3D array
+    statCube : np.array
+        variance in a 3D array
+    sSmooth : float
+        smooth length in pixel in the spatial direction
+    vSmooth : float
+        smooth length in pixel in the velocity direction
+    truncate : float
+        number of sigma after which the smoothing kernel
+        is truncated
 
-    Returns:
-        chiCube, sChiCube : np.arrays
-            X-cube and smoothed X-cube
+    Returns
+    -------
+    chiCube, sChiCube : np.array
+        X-cube and smoothed X-cube
     """
 
     print("smoothChiCube: Smoothing Cube with 3D Gaussian Kernel")
@@ -96,63 +98,66 @@ def maskHalo(chiCube,
              threshold=2.,
              thresholdType='relative',
              badPixelMask=None,
+             nSigmaExtreme = 5.,
              output='Object',
              debug=False,
              showDebug=False):
     """Given a PSF subtracted X cube (either smoothed or not) the
     macro, after masking some regions, performs a friends of friends
     search for connected pixels above a certain threshold in S/N.
-    The first step is to identify the most significative voxel in
+    The first step is to identify the most significant voxel in
     proximity of the quasar position (given as xPix, yPix, zPix).
     The code assumes that the position of the extended halo is known
     and so started to create the mask of connected pixels from this
-    point and from the most significative voxel within a sperical
+    point and from the most significant voxel within a spherical
     radius of 3.*rBadPix from (xPix, yPix, zPix).
-    From there the macro searches for neighbour pixels that are above
+    From there the macro searches for neighbor pixels that are above
     the threshold and creates a mask for the extended emission.
 
-    Inputs:
-        chiCube(np.array):
-            3D X cube output of smoothChiCube. This is constructed
-            as data/noise (or as smooth(data)/smooth(noise)).
-        xPix, yPix, zPix(floats):
-            position from where start to search for the presence
-            of an halo. This is the position of the quasar in x and y
-            and the the expected position of the extended halo at the
-            quasar redshift in z.
-        rBadPix(int):
-            radius of the circular region centred in xPix, yPix that
-            will be masked. This is typically due to the absence of
-            information at the quasar location caused by the normalization
-            of the empirical PSF model to the central region.
-        rMaxPix(int):
-            the circular region centred in xPix and yPix with radius
-            rMaxPix will be masked and not considered in the search of
-            extended emission. This helps to prevent boundary problems
-            and to speed up the algorithm.
-        rConnect(int)
-            default is rConnect=2. Connecting distance used in the FoF
-            algorithm.
-        threshold(float):
-            S/N threshold to consider a pixel as part of the extended
-            emission. Default is 2.
-        thresholdType(str):
-            'relative': A pixel will be considered as a part of an halo
-            if it is above 'threshold' times the sigma of the distribution
-            of S/N of the pixels.
-            'absolute' : A pixel will be considered as a part of an halo
-            if it is above the value of 'threshold'.
-        badPixelMask(np.array, or mask of boolean):
-            2D mask to remove spatial pixels from the estimate of the halo
-            location. If 1 (or True) the spatial pixel will be removed.
-        output(string):
-            root file name for outputs
+    Parameters
+    ----------
+    chiCube : np.array
+        3D X cube output of smoothChiCube. This is constructed
+        as data/noise (or as smooth(data)/smooth(noise)).
+    xPix, yPix, zPix : float
+        position from where start to search for the presence
+        of a halo. This is the position of the quasar in x and y
+        and the expected position of the extended halo at the
+        quasar redshift in z.
+    rBadPix : int
+        radius of the circular region centred in xPix, yPix that
+        will be masked. This is typically due to the absence of
+        information at the quasar location caused by the normalization
+        of the empirical PSF model to the central region.
+    rMaxPix : int
+        the circular region centred in xPix and yPix with radius
+        rMaxPix will be masked and not considered in the search of
+        extended emission. This helps to prevent boundary problems
+        and to speed up the algorithm.
+    rConnect : int
+        default is rConnect=2. Connecting distance used in the FoF
+        algorithm.
+    threshold : float
+        S/N threshold to consider a pixel as part of the extended
+        emission. Default is 2.
+    thresholdType : str
+        'relative': A pixel will be considered as a part of a halo
+        if it is above 'threshold' times the sigma of the distribution
+        of S/N of the pixels.
+        'absolute' : A pixel will be considered as a part of a halo
+        if it is above the value of 'threshold'.
+    badPixelMask : np.array, or mask of boolean
+        2D mask to remove spatial pixels from the estimate of the halo
+        location. If 1 (or True) the spatial pixel will be removed.
+    output : string
+        root file name for outputs
 
-    Returns:
-        maskHalo(np.array):
-            mask where the detected extended emission is set to 1 and
-            the background is set to 0. It has the same shape of the
-            input chiCube.
+    Returns
+    -------
+    maskHalo : np.array
+        mask where the detected extended emission is set to 1 and
+        the background is set to 0. It has the same shape of the
+        input chiCube.
     """
 
     # Creating a mask
@@ -165,7 +170,7 @@ def maskHalo(chiCube,
     print("          with radius {} pixels".format(rMaxPix))
     badMaskOuter = manip.location(chiCube[0, :, :], x_position=xPix, y_position=yPix,
                                           semi_maj=rMaxPix, semi_min=rMaxPix)
-    badMask[(badMaskOuter == 0)] = np.int(1)
+    badMask[(badMaskOuter == 0)] = 1
     del badMaskOuter
 
     if badPixelMask is not None:
@@ -176,7 +181,7 @@ def maskHalo(chiCube,
     chiCubeTmp = np.copy(chiCube)
     chiCubeMask = np.zeros_like(chiCube)
     channel_array = manip.channel_array(chiCubeTmp, 'z')
-    xMax, yMax, zMax = np.shape(chiCube)
+    zMax, yMax, xMax = np.shape(chiCube)
     for channel in channel_array:
         chiCubeTmp[channel, :, :][(badMask == 1)] = np.nan
         chiCubeMask[channel, :, :][(badMask == 1)] = 1
@@ -188,13 +193,13 @@ def maskHalo(chiCube,
     # centered in 0 with sigma=1. This is not true in
     # case the smoothed cube is used and/or if correlation
     # between voxels are present in the cubes.
-    # To calculate the treshold, the macro does an
+    # To calculate the threshold, the macro does an
     # approximation, assuming that the distribution is
     # more or less Gaussian. This is NOT true, and will
     # be fixed in the future.
 
-    chiCubeAve, chiCubeMed, chiCubeSig = manip.statFullCube(chiCubeTmp, nSigmaExtreme=5.)
-    chiCubeAveZ, chiCubeMedZ, chiCubeSigZ = manip.statFullCubeZ(chiCubeTmp, nSigmaExtreme=5.)
+    chiCubeAve, chiCubeMed, chiCubeSig = manip.statFullCube(chiCubeTmp, nSigmaExtreme=nSigmaExtreme)
+    chiCubeAveZ, chiCubeMedZ, chiCubeSigZ = manip.statFullCubeZ(chiCubeTmp, nSigmaExtreme=nSigmaExtreme)
     print("maskHalo: the median value of the voxels is: {:+0.4f}".format(chiCubeMed))
     print("          and the sigma is: {:+0.4f}".format(chiCubeSig))
     if thresholdType == 'relative':
@@ -214,7 +219,7 @@ def maskHalo(chiCube,
         thresholdHalo = threshold * chiCubeSigZ
 
     if debug:
-        print("maskHalo: Saving degub image on {}_voxelDistribution.pdf".format(output))
+        print("maskHalo: Saving debug image on {}_voxelDistribution.pdf".format(output))
         print("          in principle the distribution should be gaussian")
         print("          showing only channel {}".format(np.int(zMax / 2.)))
 
@@ -308,8 +313,8 @@ def maskHalo(chiCube,
     if maxSChi > thresholdHalo[zMaxSChi]:
         maskHalo[zMaxSChi, yMaxSChi, xMaxSChi] = 1
     # The code also generate a 'seed' at the expected position of the
-    # extended halo. This is helpful to avoid to be too dependend on the
-    # location of the brightes pixel. It will be removed befor output.
+    # extended halo. This is helpful to avoid to be too dependent on the
+    # location of the brightest pixel. It will be removed before output.
     zSeedMin, zSeedMax = int(zPix - 5. * rConnect), int(zPix + 5. * rConnect)
     ySeedMin, ySeedMax = int(yPix - rBadPix), int(yPix + rBadPix)
     xSeedMin, xSeedMax = int(xPix - rBadPix), int(xPix + rBadPix)
@@ -445,7 +450,7 @@ def spectralMaskHalo(maskHalo):
     maskHalo2D : np.array
         2D mask of the halo location (collapsed along the
         z-axis).
-    maskHaloMinZ, maskHaloMaxZ : np.int
+    maskHaloMinZ, maskHaloMaxZ : int
         min and max channel where the halo is detected along
         the z-axis
     """
@@ -488,20 +493,22 @@ def cleanMaskHalo(maskHalo,
      - If the total number of voxels is less than minGood the halo
        is considered as not detected and the mask is cleaned.
 
-    Inputs:
-        maskHalo(np.array):
-            3D mask of the halo location.
-        deltaZMin(int):
-            min size in the spectral axis to consider the voxel
-            as part of the halo
-        channelMin, channelMax(np.array):
-            only voxels between channelMin and channelMax in the
-            spectral direction will be considered in the creation
-            of the cleanMask
+    Parameters
+    ----------
+    maskHalo : np.array
+        3D mask of the halo location.
+    deltaZMin : int
+        min size in the spectral axis to consider the voxel
+        as part of the halo
+    channelMin, channelMax : np.array
+        only voxels between channelMin and channelMax in the
+        spectral direction will be considered in the creation
+        of the cleanMask
 
-    Returns:
-        maskHaloClean(np.array):
-            cleaned 3D mask of the halo location.
+    Returns
+    -------
+    maskHaloClean : np.array
+        cleaned 3D mask of the halo location.
     """
 
     print("cleanMaskHalo: cleaning halo mask")
@@ -566,7 +573,7 @@ def makeMoments(headCube,
                 truncate=5.,
                 debug=False,
                 showDebug=False):
-    """ Given a PSF-Subtracted datacube, this macro extraxt the moment 0, 1, 2
+    """ Given a PSF-Subtracted datacube, this macro extracts the moment 0, 1, 2
     maps of the halo identified by maskHalo.
     Where:
       mom0: is the integrated value
@@ -580,37 +587,38 @@ def makeMoments(headCube,
       mom2: is the velocity dispersion
             mom2 = sqrt[ sum[ Flux*(DV-mom1)**2. ] / sum[Flux] ]
 
-    Inputs:
-        headData(hdu header):
-            fits header for the cube
-        dataCube(np.array):
-            data in a 3D array
-        statCube(np.array):
-            variance in a 3D array
-        maskHalo(np.array):
-            mask where the detected extended emission is set to 1 and
-            the background is set to 0. It has the same shape of the
-            input dataCube.
-        centralWave(float):
-            wavelength in Ang. from which to calculate the
-            velocity shifts. If None, the macro will calculate
-            it from the spectrum of the halo.
-        sSmooth(float):
-            smooth length in pixel in the spatial direction
-        truncate(float):
-            number of sigma after which the smoothing kernel
-            is truncated
+    Parameters
+    ----------
+    headCube : hdu header
+        fits header for the cube
+    dataCube : np.array
+        data in a 3D array
+    statCube : np.array
+        variance in a 3D array
+    maskHalo : np.array
+        mask where the detected extended emission is set to 1 and
+        the background is set to 0. It has the same shape of the
+        input dataCube.
+    centralWave : float
+        wavelength in Ang. from which to calculate the
+        velocity shifts. If None, the macro will calculate
+        it from the spectrum of the halo.
+    sSmooth : float
+        smooth length in pixel in the spatial direction
+    truncate : float
+        number of sigma after which the smoothing kernel
+        is truncated
 
-
-    Returns:
-        mom0, mom1, mom2(np.arrays):
-            moment maps in 2D arrays. Units for mom0 are
-            of fluxes, while for mom1 and mom2 are of
-            velocity
-        centralWave(float):
-            wavelength in Ang. from which to the velocity shifts
-            are calculated. It is equal to the input wavelength
-            if not set to None.
+    Returns
+    -------
+    mom0, mom1, mom2 : np.array
+        moment maps in 2D arrays. Units for mom0 are
+        of fluxes, while for mom1 and mom2 are of
+        velocity
+    centralWave : float
+        wavelength in Ang. from which to the velocity shifts
+        are calculated. It is equal to the input wavelength
+        if not set to None.
     """
 
     print("makeMoments: estimating halo moments")
