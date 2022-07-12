@@ -570,14 +570,16 @@ def makeMoments(headCube,
     Where:
 
     * mom0: is the integrated value
-     .. math::
-         mom0 = sum[Flux*dlambda]
-      where sum is the sum along the channels
+
+    .. math::
+        mom0 = sum[Flux*dlambda]
+    where sum is the sum along the channels
 
     * mom1: is the velocity field
      .. math::
          mom1 = sum[DV*Flux] / sum[Flux]
-      where DV is the velocity difference of a channel from the centralWave
+
+    where DV is the velocity difference of a channel from the centralWave
      .. math::
          DV = (wavelength - centralWave) / centralWave * speed of light
 

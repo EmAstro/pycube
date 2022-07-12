@@ -2,6 +2,7 @@
 .. _numpy.ndarray: https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html
 
 .. astropy
+.. _astropy: http://docs.astropy.org/en/stable/
 .. _astropy.io.fits: http://docs.astropy.org/en/stable/io/fits/index.html
 .. _astropy.io.fits.open: http://docs.astropy.org/en/stable/io/fits/api/files.html#astropy.io.fits.open
 .. _astropy.io.fits.HDUList: http://docs.astropy.org/en/stable/io/fits/api/hdulists.html
