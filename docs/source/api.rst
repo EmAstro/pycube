@@ -1,8 +1,11 @@
+.. include:: include/links.rst
+
+
 The pycube API reference
 ========================
 
 .. automodule:: pycube
-    :members:
+   :members:
 
 pycube
 ------
@@ -14,15 +17,15 @@ The cubeClass class
     :members:
 
 The psf module
-++++++++++++++++
+++++++++++++++
 
 .. automodule:: pycube.psf
     :members:
 
-The halo module
-++++++++++++++
+The halos module
+++++++++++++++++
 
-.. automodule:: pycube.halo
+.. automodule:: pycube.halos
     :members:
 
 pycube.core
@@ -60,6 +63,11 @@ image
 
 .. automodule:: pycube.datacontainers.image
     :members:
+The ancillary module
+++++++++++++++++++++
+
+.. automodule:: pycube.ancillary
+   :members:
 
 pycube.instruments
 ------------------

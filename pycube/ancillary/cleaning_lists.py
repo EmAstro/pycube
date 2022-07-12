@@ -12,6 +12,7 @@ from pycube.ancillary import checks
 
 def make_list_of_fits_files(args_input, verify_fits=False):
     r"""Cleaning an input list of fits files
+
     Args:
         args_input (list): input list of fits files that will be checked (usually is coming from `parse_arguments()` in
             a script)
@@ -36,7 +37,9 @@ def make_list_of_fits_files(args_input, verify_fits=False):
 
 def from_element_to_list(element, element_type=str):
     r"""Given an element it returns a list containing the element
+
     It also checks all the elements in the list have the same type defined by `element_type`
+
     Args:
         element (any): element that will be put in the list
         element_type (any): type of the element that should be contained in the list

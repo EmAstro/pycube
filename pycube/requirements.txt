@@ -1,5 +1,6 @@
 # Required Packages for pycube
 astropy>=4.2
+extinction>=0.4
 matplotlib>=3.3
 numpy>=1.20
-extinction>=0.4
+sep>=1.2
