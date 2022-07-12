@@ -17,7 +17,7 @@ The cubeClass class
     :members:
 
 The psf module
-++++++++++++++
++++++++++++++++
 
 .. automodule:: pycube.psf
     :members:

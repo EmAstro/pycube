@@ -41,7 +41,7 @@ def smoothChiCube(dataCube,
     chiCube = -------------------------
                     sqrt(statCube)
     Given that scipy has hard time to deal with NaNs, NaNs
-    values in the dataCube are converted to zeros, while the
+    values in the dataCube are converted to zeroes, while the
     NaNs in the statCube to nanmax(statCube).
 
     Parameters
@@ -348,7 +348,7 @@ def maskHalo(chiCube,
 
     if debug:
         print("maskHalo: Creating debug image")
-        print("          Plotting Channel {} where the most significative voxel is.".format(zMaxSChi))
+        print("          Plotting Channel {} where the most significant voxel is.".format(zMaxSChi))
         print("          The location of this voxel is marked with a red circle")
         print("          The position of the quasars is in blue")
 

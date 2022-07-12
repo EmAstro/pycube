@@ -65,29 +65,19 @@ class IfuCube:
         """
         # ToDo the value of those should be set by the spectrograph object
         # When the user specifies what spectrograph they utilize the code should tailor to assign these
-        self.hdul = fits.open(self.image)
+        self.hdul = fits.open(self.image, memmap=True)
         self.primary = self.hdul[0]
         self.data = self.hdul[1]
         self.stat = self.hdul[2]
-
     def get_background(self,
-                       sigSourceDetection=5.0, minSourceArea=16., sizeSourceMask=6., maxSourceSize=50.,
+                       sigSourceDetection=5.0, minSourceArea=16.,
+                       sizeSourceMask=6., maxSourceSize=50.,
                        maxSourceEll=0.9, edges=60):
-        """
-          Uses statBg from psf.py to generate the source mask and the background
-          image with sources removed and appends to self.hdul for easy access
+        """Uses statBg from psf.py to generate the source mask and the background
+        image with sources removed and appends to self.hdul for easy access
 
         Parameters
         ----------
-        min_lambda : int
-            min channel to create the image where to detect sources
-        max_lambda : int
-            max channel to create the image where to detect sources
-        maskZ : int, bool, optional
-            when 1 (or True), this is a channel to be removed
-        maskXY : int, bool, optional
-            when 1 (or True), this spatial pixel will remove from
-            the estimate of the b/g values
         sigSourceDetection : float
             detection sigma threshold for sources in the
             collapsed cube. Defaults is 5.0
@@ -107,8 +97,6 @@ class IfuCube:
         edges : int
             frame size removed to avoid problems related to the edge
             of the image
-        output : string
-            root file name for output
         Returns
         -------
         astropy.hdul
@@ -130,8 +118,28 @@ class IfuCube:
         self.hdul = self.hdul[:3] # removes MASK and BACKGROUND if function ran in succession
         self.hdul.append(self.source_mask)
         self.hdul.append(self.source_background)
+    """
+    def save_psf(self, x_pos, y_pos,
+                 radius_pos, inner_rad,
+                 outer_rad, cType = 'sum', 
+                 min_lambda, max_lambda,)
+    
+    
+    psf_data, psf_stat = psf.makePsf(self.data.data, self.stat.data,
+                                     x_pos=x_pos,y_pos=y_pos,
+                                     inner_rad=inner_rad,outer_rad=outer_rad,
+                                     min_lambda=min_lambda, max_lambda=max_lambda)
+    
+    dataCubeClean, dataCubeModel = psf.cleanPsf(self.data.data,self.stat.data,
+                                            psfModel=psf_data,
+                                            x_pos=x_pos, y_pos=y_pos,
+                                            radius_pos=radius_pos, inner_rad=inner_rad,
+                                            outer_rad=outer_rad) 
+    
+    
+    
+    """
 
-    #def save_halo(self):
 
 
     def background(self, mode='median'):
