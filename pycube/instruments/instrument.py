@@ -26,3 +26,19 @@ class Instrument:
     @data_extension.setter
     def data_extension(self, data_extension):
         self._data_extension = data_extension
+
+    @property
+    def sigma_extension(self):
+        return self._sigma_extension
+
+    @sigma_extension.setter
+    def sigma_extension(self, sigma_extension):
+        self._sigma_extension = sigma_extension
+
+    @property
+    def primary_extension(self):
+        return self._primary_extension
+
+    @primary_extension.setter
+    def primary_extension(self, primary_extension):
+        self._primary_extension = primary_extension

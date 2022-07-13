@@ -16,13 +16,14 @@ Detailed installation instructions are presented below:
 python and dependencies
 -----------------------
 
-ESOAsg runs with `python <http://www.python.org/>`_ 3.9 and with the following dependencies:
+pycube runs with `python <http://www.python.org/>`_ 3.9 and with the following dependencies:
 
 * `python <http://www.python.org/>`_ -- version 3.9 or later
 * `astropy <https://www.astropy.org/>`_ -- version 4.2 or later
 * `matplotlib <https://matplotlib.org/>`_ -- version 3.3 or later
-* `numpy <http://www.numpy.org/>`_ -- version 1.19 or later
-
+* `numpy <http://www.numpy.org/>`_ -- version 1.20 or later
+* `extinction <https://extinction.readthedocs.io/en/latest/>`_ -- version 0.4 or later
+* `sep <https://sep.readthedocs.io/en/v1.1.x/>`_ -- version 1.2 or later
 If you are using Anaconda, you can check the presence of these packages with::
 
     conda list "^python$|astropy$|matplotlib$|numpy$"

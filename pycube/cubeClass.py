@@ -9,10 +9,11 @@ from astropy.io import fits
 from IPython import embed
 import sep
 import matplotlib.pyplot as plt
+from pycube import instruments
 
 
 class IfuCube:
-    def __init__(self, image, object=None, primary=None, data=None, stat=None, hdul=None, background_mode=None):
+    def __init__(self, image, instrument=None, object=None, primary=None, data=None, stat=None, hdul=None, background_mode=None):
         """"
         Inputs:
             image: raw FITS file
@@ -20,6 +21,7 @@ class IfuCube:
         initializes data cube FITS file for IFU_cube class
         """
         self.image = image
+        self.instrument = instrument
         self.object = object
         self.primary = primary
         self.data = data
@@ -36,7 +38,7 @@ class IfuCube:
     @primary.setter
     def primary(self, primary):
         self._primary = primary
-        #self._object = primary.header['OBJECT']
+        # self._object = primary.header['OBJECT']
 
     @property
     def source_mask(self):
@@ -46,29 +48,43 @@ class IfuCube:
     def source_mask(self, source_mask):
         self._source_mask = source_mask
 
+    @property
+    def instrument(self):
+        return self._instrument
+
+    @instrument.setter
+    def instrument(self, instrument):
+        self._instrument = instrument
 
     def from_fits_file(self):
         """
         Opens .FITS file and separates information by primary, data, and stat.
 
-        Parameters
-        ----------
-            fits_filename : str
-            .FITS file to assign self parameter to.
-
-        Returns
+        Assigns
         -------
-            hdul to open data file
-            Primary row of file
-            Data row of file
-            Stat (variance) row of file
+        hdul to open data file
+        Primary row of file
+        Data row of file
+        Stat (variance) row of file
         """
-        # ToDo the value of those should be set by the spectrograph object
-        # When the user specifies what spectrograph they utilize the code should tailor to assign these
+
+        if self.instrument is None:
+            # either set a default assignments or have code request instrument designation
+            pass
         self.hdul = fits.open(self.image, memmap=True)
-        self.primary = self.hdul[0]
-        self.data = self.hdul[1]
-        self.stat = self.hdul[2]
+        self.primary = self.hdul[self.instrument.primary_extension]
+        self.data = self.hdul[self.instrument.data_extension]
+        self.stat = self.hdul[self.instrument.sigma_extension]
+
+    def get_data(self):
+        return np.copy(self.data.data)
+
+    def get_stat(self):
+        return np.copy(self.stat.data)
+
+    def get_data_stat(self):
+        return self.get_data(), self.get_stat()
+
     def get_background(self,
                        sigSourceDetection=5.0, minSourceArea=16.,
                        sizeSourceMask=6., maxSourceSize=50.,
@@ -97,6 +113,7 @@ class IfuCube:
         edges : int
             frame size removed to avoid problems related to the edge
             of the image
+
         Returns
         -------
         astropy.hdul
@@ -104,18 +121,15 @@ class IfuCube:
 
         """
 
-        datacopy = self.data.data
-        statcopy = self.stat.data
-        datacopy = datacopy.byteswap(inplace=False).newbyteorder()
-        statcopy = statcopy.byteswap(inplace=False).newbyteorder()
-        cube_bg, mask_bg = psf.background_cube(datacube=datacopy, statcube=statcopy,
-                                                    sigSourceDetection=sigSourceDetection, minSourceArea=minSourceArea,
-                                                    sizeSourceMask=sizeSourceMask, maxSourceSize=maxSourceSize,
-                                                    maxSourceEll=maxSourceEll, edges=edges)
+        cube_bg, mask_bg = psf.background_cube(self, sigSourceDetection=sigSourceDetection,
+                                               minSourceArea=minSourceArea,
+                                               sizeSourceMask=sizeSourceMask,
+                                               maxSourceSize=maxSourceSize,
+                                               maxSourceEll=maxSourceEll, edges=edges)
 
         self.source_mask = fits.ImageHDU(data=mask_bg, name='MASK')
         self.source_background = fits.ImageHDU(data=cube_bg, name='BACKGROUND')
-        self.hdul = self.hdul[:3] # removes MASK and BACKGROUND if function ran in succession
+        self.hdul = self.hdul[:3]  # removes MASK and BACKGROUND if function ran in succession
         self.hdul.append(self.source_mask)
         self.hdul.append(self.source_background)
     """
@@ -139,8 +153,6 @@ class IfuCube:
     
     
     """
-
-
 
     def background(self, mode='median'):
         if mode == 'median':
