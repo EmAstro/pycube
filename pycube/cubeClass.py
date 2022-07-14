@@ -9,7 +9,7 @@ from astropy.io import fits
 from IPython import embed
 import sep
 import matplotlib.pyplot as plt
-from pycube import instruments
+from pycube.instruments import vlt_muse
 
 
 class IfuCube:
@@ -76,14 +76,30 @@ class IfuCube:
         self.data = self.hdul[self.instrument.data_extension]
         self.stat = self.hdul[self.instrument.sigma_extension]
 
+    def get_primary(self):
+        return self.primary.header
+
     def get_data(self):
         return np.copy(self.data.data)
+
+    def get_data_header(self):
+        return self.data.header
 
     def get_stat(self):
         return np.copy(self.stat.data)
 
+    def get_stat_header(self):
+        return self.stat.header
+
     def get_data_stat(self):
         return self.get_data(), self.get_stat()
+
+    def get_headers(self):
+        return self.get_data_header(), self.get_stat_header()
+
+    def get_dimensions(self):
+        z_max, y_max, x_max = np.shape(self.get_data())
+        return z_max, y_max, x_max
 
     def get_background(self,
                        sigSourceDetection=5.0, minSourceArea=16.,
@@ -132,6 +148,7 @@ class IfuCube:
         self.hdul = self.hdul[:3]  # removes MASK and BACKGROUND if function ran in succession
         self.hdul.append(self.source_mask)
         self.hdul.append(self.source_background)
+
     """
     def save_psf(self, x_pos, y_pos,
                  radius_pos, inner_rad,
