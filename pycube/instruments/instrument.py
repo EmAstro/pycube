@@ -16,6 +16,7 @@ class Instrument:
     """
 
     def __init__(self):
+        self.primary_extension = None
         self.data_extension = None
         self.sigma_extension = None
 
