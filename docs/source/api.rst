@@ -63,11 +63,21 @@ image
 
 .. automodule:: pycube.datacontainers.image
     :members:
-The ancillary module
-++++++++++++++++++++
 
-.. automodule:: pycube.ancillary
-   :members:
+pycube.ancillary
+----------------
+
+checks
+++++++
+
+.. automodule:: pycube.ancillary.checks
+    :members:
+
+cleaning_lists
+++++++++++++++
+
+.. automodule:: pycube.ancillary.cleaning_lists
+    :members:
 
 pycube.instruments
 ------------------
@@ -102,18 +112,4 @@ test_msgs
 .. automodule:: pycube.test.test_msgs
     :member:
 
-pycube.ancillary
-----------------
-
-checks
-++++++
-
-.. automodule:: pycube.ancillary.checks
-    :members:
-
-cleaning_lists
-++++++++++++++
-
-.. automodule:: pycube.ancillary.cleaning_lists
-    :members:
 

@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
-import sep
 
 from astropy.stats import sigma_clipped_stats
 import astropy.coordinates as coord
@@ -11,8 +10,6 @@ from photutils import CircularAperture
 from photutils import CircularAnnulus
 from photutils import aperture_photometry
 from photutils import EllipticalAperture
-
-from pycube.core import background
 
 from astroquery.irsa_dust import IrsaDust
 
@@ -49,32 +46,6 @@ def nicePlot():
     plt.rcParams["font.size"] = 30
     plt.rcParams["legend.frameon"] = True
     plt.rcParams["legend.handletextpad"] = 1
-
-
-def view_pos(datacontainer, radius):
-    """
-
-    Parameters
-    ----------
-    datacontainer : IFUcube object
-
-    Returns
-    -------
-
-    """
-
-    datacopy = datacontainer.get_data()
-    z_max, y_max, x_max = np.shape(datacopy)
-    x_center = int(0.5 * x_max)
-    y_center = int(0.5 * y_max)
-    collapsed = collapse_cube(datacopy, 0, z_max)
-    collapsed[x_center, y_center] = np.inf
-    gridrange = collapsed[x_center - radius:x_center + radius, y_center - radius:y_center + radius]
-    plt.imshow(gridrange, origin='lower')
-    plt.colorbar()
-    plt.show()
-
-    return x_center, y_center
 
 
 def find_sigma(data):
@@ -171,7 +142,7 @@ def convert_to_channel(datacontainer, datacopy, channels='z'):
     return np.array(channel, float)
 
 
-def collapse_cube(datacube, min_lambda=None, max_lambda=None):
+def collapse_cube(datacube, min_lambda=None, max_lambda=None, maskZ = None):
     """ Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
     Parameters
     ----------
@@ -197,14 +168,15 @@ def collapse_cube(datacube, min_lambda=None, max_lambda=None):
     if min_lambda is None or min_lambda < 0:
         min_lambda = 0
         print("collapse_cube : Invalid / unspecified minimum wavelength. Min value is set to 0")
-
+    if maskZ is not None:
+        datacopy[maskZ, :, :] = np.nan
     col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
     del datacopy
     del z_max, y_max, x_max
     return col_cube
 
 
-def collapse_container(datacontainer, min_lambda=None, max_lambda=None, var_thresh=5.):
+def collapse_container(datacontainer, min_lambda=None, max_lambda=None, maskZ = None, var_thresh=5.):
     """ Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
 
     Parameters
@@ -225,8 +197,9 @@ def collapse_container(datacontainer, min_lambda=None, max_lambda=None, var_thre
         Condensed 2D array of 3D file.
     """
 
-    z_max, y_max, x_max = datacontainer.get_dimensions()
     datacopy, statcopy = datacontainer.get_data_stat()
+    z_max, y_max, x_max = np.shape(datacopy)
+
     # Checks and sets if outside boundaries of z
     if max_lambda is None or max_lambda > z_max:
         max_lambda = z_max
@@ -235,15 +208,22 @@ def collapse_container(datacontainer, min_lambda=None, max_lambda=None, var_thre
     if min_lambda is None or min_lambda < 0:
         min_lambda = 0
         print("collapse_cube : Invalid / unspecified minimum wavelength. Min value is set to 0")
+    if maskZ is not None:
+        datacopy[maskZ, :, :] = np.nan
     col_datacube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
 
     if statcopy is not None:
-        col_statcube = np.nansum(statcopy[min_lambda:max_lambda, :, :], axis=0)
+        if maskZ is not None:
+            statcopy[maskZ, :, :] = np.nan
+        fin_col_statcube = np.nansum(statcopy[min_lambda:max_lambda, :, :], axis=0)
     else:
         med_cube = np.nanmedian(col_datacube)
         std_cube = np.nanstd(col_datacube - med_cube)
         col_statcube = np.zeros_like(col_datacube) + \
                        np.nanvar(col_datacube[(col_datacube - med_cube) < (var_thresh * std_cube)])
+        if maskZ is not None:
+            col_statcube[maskZ, :, :] = np.nan
+        fin_col_statcube = np.nansum(col_statcube[min_lambda:max_lambda, :, :], axis=0)
 
         del med_cube
         del std_cube
@@ -251,7 +231,7 @@ def collapse_container(datacontainer, min_lambda=None, max_lambda=None, var_thre
     del statcopy
     del z_max, y_max, x_max
 
-    return col_datacube, col_statcube
+    return col_datacube, fin_col_statcube
 
 
 def collapse_mean_container(datacontainer, min_lambda=None, max_lambda=None, threshold=5.):
@@ -373,7 +353,7 @@ def location(data_flat, x_position=None, y_position=None,
     del object_position
     del x_mask
     del y_mask
-    return np.array((mask_array > 0.), dtype=int)
+    return np.array((mask_array > 0.), int)
 
 
 def annularMask(data_flat,
@@ -384,7 +364,7 @@ def annularMask(data_flat,
                 delta_maj=2.,
                 delta_min=2.,
                 theta=0.):
-    """Returning a mask where annuli centered in xObj and yObj with
+    """Returning a mask where annuli centered in x_pos and y_pos with
     inner axis aObj and bObj and outer axis aObj+deltaAObj and bObj+
     deltaBObj are marked as 1.
 
@@ -412,22 +392,22 @@ def annularMask(data_flat,
     -------
     np.array
         mask where sources are marked with 1 and background with 0.
-        It has the same dimensions of the input imgData
+        It has the same dimensions of the input datacopy
     """
 
     # Creating mask
-    imgMsk = location(data_flat, x_position, y_position,
+    img_msk = location(data_flat, x_position, y_position,
                       semi_maj=semi_maj + delta_maj, semi_min=semi_min + delta_min,
                       theta=theta)
-    imgMskInner = location(data_flat, x_position, y_position,
+    inner_img_mask = location(data_flat, x_position, y_position,
                            semi_maj=semi_maj, semi_min=semi_min,
                            theta=theta)
-    imgMsk[(imgMskInner > 0)] = np.int(0)
+    img_msk[(inner_img_mask > 0)] = 0
 
     # Cleaning up memory
-    del imgMskInner
+    del inner_img_mask
 
-    return imgMsk.astype(int)
+    return img_msk.astype(int)
 
 
 # TODO
@@ -469,43 +449,43 @@ def smallCube(datacontainer, min_lambda=None, max_lambda=None):
     primary_headers = datacontainer.get_primary()
     data_headers, stat_headers = datacontainer.get_header()
     # Check for the size of the cube
-    z_max, y_max, x_max = datacontainer.get_dimensions()
+    z_max, y_max, x_max = np.shape(datacopy)
 
     # Setting min and max channels for collapsing
     if (min_lambda is not None) & (max_lambda is not None):
-        minChannelSort = np.min([min_lambda, max_lambda])
-        maxChannelSort = np.max([min_lambda, max_lambda])
-        min_lambda, max_lambda = minChannelSort, maxChannelSort
-        del minChannelSort
-        del maxChannelSort
+        min_channel_sort = np.min([min_lambda, max_lambda])
+        max_channel_sort = np.max([min_lambda, max_lambda])
+        min_lambda, max_lambda = min_channel_sort, max_channel_sort
+        del min_channel_sort
+        del max_channel_sort
     # set values in case of Nones
     if min_lambda is None:
         print("smallCube: minChannel set to 0")
-        min_lambda = np.int(0)
+        min_lambda = 0
     if max_lambda is None:
-        print("smallCube: maxChannel set to {}".format(np.int(z_max)))
-        max_lambda = np.int(z_max)
+        print("smallCube: maxChannel set to {}".format(int(z_max)))
+        max_lambda = int(z_max)
     # If input values are larger than 3000., the macro converts from
     # wavelength in ang. to channel number.
     if min_lambda > 3000.:
         print("smallCube: Converting min wavelength in Ang. to channel number")
         min_lambda = convert_to_channel(datacontainer, datacopy)
     else:
-        min_lambda = np.int(min_lambda)
+        min_lambda = int(min_lambda)
     if max_lambda > 3000.:
         print("smallCube: Converting Max wavelength in Ang. to channel number")
         max_lambda = convert_to_channel(datacontainer, datacopy)
     else:
-        max_lambda = np.int(max_lambda)
+        max_lambda = int(max_lambda)
     # Check for upper and lower limits
     if min_lambda < 0:
         print("smallCube: Negative value for minChannel set to 0")
-        min_lambda = np.int(0)
+        min_lambda = int(0)
     if max_lambda > (z_max + 1):
-        print("smallCube: maxChannel is outside the cube size. Set to {}".format(np.int(z_max)))
-        max_lambda = np.int(z_max)
+        print("smallCube: maxChannel is outside the cube size. Set to {}".format(int(z_max)))
+        max_lambda = int(z_max)
 
-    smallCubeCRVAL3 = np.float(convert_to_wave(datacopy))
+    smallCubeCRVAL3 = (convert_to_wave(datacontainer, datacopy))
     print("smallCube: Creating smaller cube")
     print("           The old pivot wavelength was {}".format(data_headers['CRVAL3']))
     print("           The new pivot wavelength is {}".format(smallCubeCRVAL3))
@@ -671,6 +651,73 @@ def quickApPhotmetry(datacopy,
     return obj_flux, obj_err_flux, ave_flux
 
 
+def quickApPhotmetryNoBg(datacopy,
+                         statcopy,
+                         x_pos,
+                         y_pos,
+                         obj_rad=2.):
+    """Performing quick circular aperture photometry on an image
+    without background subtraction
+
+    Parameters
+    ----------
+    datacopy : np.array
+        image where the aperture photometry will be performed
+    statcopy : np.array
+        variance image that will be used to calculate the errors
+        on the aperture photometry
+    x_pos : np.array
+        x-location of the source in pixel
+    y_pos : np.array
+        y-location of the source in pixel
+    obj_rad : np.array
+        radius where to perform the aperture photometry
+    Returns
+    -------
+    fluxObj, errFluxObj : np.arrays
+        fluxes and errors of the sources derived from imgData
+        and imgStat
+    """
+    print("quickApPhotmetryNoBg: Performing aperture photometry")
+
+    if np.size(x_pos) == 1:
+        xObject = np.array([x_pos])
+        yObject = np.array([y_pos])
+    else:
+        xObject = np.array(x_pos)
+        yObject = np.array(y_pos)
+
+    if np.size(obj_rad) == 1:
+        rAperture = np.full_like(xObject, obj_rad, float)
+    else:
+        rAperture = np.array(obj_rad)
+
+    # setting up empty arrays
+    fluxObj = np.zeros_like(xObject, float)
+    errFluxObj = np.zeros_like(xObject, float)
+
+    # filling arrrays
+    print("quickApPhotmetryNoBg: Aperture photometry on source:")
+    for index in range(0, np.size(xObject)):
+        print("                      {:03d} -> ({:03.2f},{:03.2f})".format(index, float(xObject[index]),
+                                                                           float(yObject[index])))
+        posObj = [xObject[index], yObject[index]]
+        circObj = CircularAperture(posObj, r=rAperture[index])
+        apPhot = aperture_photometry(datacopy, circObj)
+        varApPhot = aperture_photometry(statcopy, circObj)
+        fluxObj[index] = apPhot['aperture_sum'][0]
+        errFluxObj[index] = np.power(np.array(varApPhot['aperture_sum'][0]), 0.5)
+
+    # Deleting temporary arrays to clear up memory
+    del rAperture
+    del posObj
+    del circObj
+    del apPhot
+    del varApPhot
+
+    return fluxObj, errFluxObj
+
+
 def quickSpectrum(datacontainer,
                   x_pos,
                   y_pos,
@@ -763,7 +810,7 @@ def quickSpectrum(datacontainer,
 def quickSpectrumNoBg(datacontainer,
                       x_pos,
                       y_pos,
-                      statcopy = None,
+                      statcopy=None,
                       radius_pos=2.):
     """Performing quick spectrum extraction from a circular aperture on a cube.
 
@@ -816,7 +863,6 @@ def quickSpectrumNoBg(datacontainer,
 
 
 def quickSpectrumNoBgMask(datacontainer,
-                          statcube,
                           maskXY):
     """Performing quick spectrum extraction from an aperture given by a 2D mask
     from a cube.
@@ -825,37 +871,34 @@ def quickSpectrumNoBgMask(datacontainer,
     ----------
     datacontainer : np.array
         data in a 3D array
-    statcube : np.array
-        variance in a 3D array
     maskXY : np.array
         2D aperture where to perform the spectral extraction.
         Only spaxels marked as 1 are considered
 
     Returns
     -------
-    fluxObj, errFluxObj
+    flux_obj, err_flux_obj
     """
 
     print("quickSpectrumNoBgMask: Extracting spectrum from the cube")
-    datacopy = np.copy(datacontainer)
-    statcopy = np.copy(statcube)
-    zMax, yMax, xMax = datacontainer.shape
-    for channel in np.arange(0, zMax, 1):
+    datacopy, statcopy = datacontainer.get_data_stat()
+    z_max, y_max, x_max = np.shape(datacopy)
+    for channel in np.arange(0, z_max, 1):
         # masking arrays
         datacopy[channel, :, :][(maskXY < 1)] = 0
         statcopy[channel, :, :][(maskXY < 1)] = 0
 
-    fluxObj = np.nansum(datacopy, axis=(1, 2))
-    errFluxObj = np.sqrt(np.nansum(statcopy, axis=(1, 2)))
+    flux_obj = np.nansum(datacopy, axis=(1, 2))
+    err_flux_obj = np.sqrt(np.nansum(statcopy, axis=(1, 2)))
 
     # Deleting temporary arrays to clear up memory
     del datacopy
     del statcopy
 
-    return fluxObj, errFluxObj
+    return flux_obj, err_flux_obj
 
 
-def gaussian(x, N, x0, sigma):
+def gaussian(x, norm, x0, sigma):
     """ Returns gaussian given normalization, center, and sigma.
 
     Parameters
@@ -871,7 +914,7 @@ def gaussian(x, N, x0, sigma):
         The gaussian curve evaluated in x
     """
 
-    gauss = N * np.exp(-(x - x0) ** 2 / (2. * sigma ** 2))
+    gauss = norm * np.exp(-(x - x0) ** 2 / (2. * sigma ** 2))
 
     return np.array(gauss, float)
 
@@ -977,20 +1020,20 @@ def statFullCubeZ(datacontainer,
     return cubeAverageZ, cubeMedianZ, cubeStandardZ
 
 
-def distFromPixel(zPix1, yPix1, xPix1,
-                  zPix2, yPix2, xPix2):
+def distFromPixel(z_pos1, y_pos1, x_pos1,
+                  z_pos2, y_pos2, x_pos2):
     """ Given a pixel (1) and a set of locations
     (2), the macro returns the euclidean distance
     from (2) to (1)
 
     Parameters
     ----------
-    zPix1, yPix1, xPix1 : float
+    z_pos1, y_pos1, x_pos1 : float
         location of the pixel from which calculate the
         distances
-    zPix2, yPix2, xPix2 : np.array
+    z_pos2, y_pos2, x_pos2 : np.array
         location of the pixels for which the distances
-        from zPix1, yPix1, xPix1 will be calculated
+        from zPix1, y_pos1, xPix1 will be calculated
 
     Returns
     -------
@@ -998,16 +1041,16 @@ def distFromPixel(zPix1, yPix1, xPix1,
         distance from (1) to (2)
     """
 
-    zDist = np.power(zPix1 - zPix2, 2.)
-    yDist = np.power(yPix1 - yPix2, 2.)
-    xDist = np.power(xPix1 - xPix2, 2.)
+    zDist = np.power(z_pos1 - z_pos2, 2.)
+    yDist = np.power(y_pos1 - y_pos2, 2.)
+    xDist = np.power(x_pos1 - x_pos2, 2.)
 
     dist = np.sqrt(zDist + yDist + xDist)
 
     return dist
 
 
-def celestialToPixel(datacontainer, ra, dec):
+def object_coord(datacontainer, ra, dec):
     """Reads in a datacube and user input of an object in RA and DEC.
     Returns to user the converted X, Y position of the object
     Utilizes Header data in the fits file of the datacube entered.
@@ -1015,8 +1058,8 @@ def celestialToPixel(datacontainer, ra, dec):
 
     Parameters
     ----------
-    datacontainer : np.array
-        3D array
+    datacontainer : IFUcube Object
+        data file initialized in cubeClass.py
     ra : float
         Right ascension of object in degrees
     dec : float
@@ -1025,10 +1068,10 @@ def celestialToPixel(datacontainer, ra, dec):
     Returns
     -------
     float
-        x_pos X pixel coordinate of object
-        y_pos Y pixel coordinate of object
+        x_pos X pixel coordinate of object in datacube
+        y_pos Y pixel coordinate of object in datacube
     """
-    headers = datacontainer.data.header
+    headers = datacontainer.get_data_header()
 
     raRef = headers['CRVAL1']
     raConversion = headers['CD1_1']

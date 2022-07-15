@@ -2,14 +2,10 @@
 """Import modules useful for analyzing MUSE data and handling FITS files"""
 import numpy as np
 from pycube.core import background
-from pycube.core import manip
 from pycube import psf
 from pycube import msgs
 from astropy.io import fits
 from IPython import embed
-import sep
-import matplotlib.pyplot as plt
-from pycube.instruments import vlt_muse
 
 
 class IfuCube:
@@ -102,28 +98,28 @@ class IfuCube:
         return z_max, y_max, x_max
 
     def get_background(self,
-                       sigSourceDetection=5.0, minSourceArea=16.,
-                       sizeSourceMask=6., maxSourceSize=50.,
-                       maxSourceEll=0.9, edges=60):
+                       sig_source_detection=5.0, min_source_area=16.,
+                       source_mask_size=6., max_source_size=50.,
+                       max_source_ell=0.9, edges=60):
         """Uses statBg from psf.py to generate the source mask and the background
         image with sources removed and appends to self.hdul for easy access
 
         Parameters
         ----------
-        sigSourceDetection : float
+        sig_source_detection : float
             detection sigma threshold for sources in the
             collapsed cube. Defaults is 5.0
-        minSourceArea : float
+        min_source_area : float
             min area for source detection in the collapsed
             cube. Default is 16.
-        sizeSourceMask : float
+        source_mask_size : float
             for each source, the model will be created in an elliptical
-            aperture with size sizeSourceMask time the semi-minor and semi-major
+            aperture with size source_mask_size time the semi-minor and semi-major
             axis of the detection (default is 6.)
-        maxSourceSize : float
+        max_source_size : float
             sources with semi-major or semi-minor axes larger than this
             value will not be considered in the foreground source model (default is 50.)
-        maxSourceEll : float
+        max_source_ell : float
             sources with ellipticity larger than this value will not be
             considered in the foreground source model. Default is 0.9.
         edges : int
@@ -137,11 +133,11 @@ class IfuCube:
 
         """
 
-        cube_bg, mask_bg = psf.background_cube(self, sigSourceDetection=sigSourceDetection,
-                                               minSourceArea=minSourceArea,
-                                               sizeSourceMask=sizeSourceMask,
-                                               maxSourceSize=maxSourceSize,
-                                               maxSourceEll=maxSourceEll, edges=edges)
+        cube_bg, mask_bg = psf.background_cube(self, sig_source_detect=sig_source_detection,
+                                               min_source_area=min_source_area,
+                                               source_mask_size=source_mask_size,
+                                               source_size_max=max_source_size,
+                                               source_ellipse_max=max_source_ell, edges=edges)
 
         self.source_mask = fits.ImageHDU(data=mask_bg, name='MASK')
         self.source_background = fits.ImageHDU(data=cube_bg, name='BACKGROUND')
