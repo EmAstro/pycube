@@ -12,8 +12,9 @@ import sep
 import gc
 
 
-def find_sources(datacontainer, statcube = None,
+def find_sources(datacontainer, statcube=None,
                  min_lambda=None, max_lambda=None,
+                 mask_z=None,
                  var_factor=5.,
                  threshold=4.,
                  sig_detect=2.,
@@ -25,14 +26,18 @@ def find_sources(datacontainer, statcube = None,
 
     Parameters
     ----------
-    datacontainer : np.array
-            data cube. 2D or 3D
+    datacontainer : np.array, IFUcube object
+        3D data cube of or data file initialized in cubeClass.py
+    statcube : np.array, optional
+        3D variance of data, assumes IFUcube for datacontainer (default is None)
     min_lambda : float
         minimum wavelength value to collapse 3D image (default is None)
     max_lambda : float
         maximum wavelength value to collapse 3D image (default is None)
+    mask_z : np.array
+        range of z-axis values that the user can mask in the datacube during collapsing (default is None)
     var_factor : int, float, optional
-        affects generated variance, if variance is auto-generated from image data (default 5.)
+        affects generated variance, if variance is auto-generated from image data (default is 5.)
     threshold : int, float, optional
         threshold value for sigma detection with seXtractor background subtraction (default is 4.)
     sig_detect : int, float, optional
@@ -46,20 +51,30 @@ def find_sources(datacontainer, statcube = None,
 
     Returns
     -------
-    xPix : np.array
-    yPix : np.array
-    aPix : np.array
-    bPix : np.array
+    x_pos : np.array
+        x positions of objects
+    y_pos : np.array
+        y positions of objects
+    maj_axis : np.array
+        semi-major axis value of objects
+    min_axis : np.array
+        semi-minor axis of objects
     angle : np.array
+        angle for elliptical masking
     all_objects : np.array
+        directory for all objects found and their values
     """
+
+    # correct collapsing if object passed or two 3D arrays
     if statcube is None:
-        datacopy, statcopy = datacontainer.get_data_stat()
+        data_background, var_background = manip.collapse_container(datacontainer, min_lambda=min_lambda,
+                                                                   max_lambda=max_lambda, maskZ=mask_z,
+                                                                   var_thresh=var_factor)
     else:
         datacopy = datacontainer
+        data_background = manip.collapse_cube(datacopy, min_lambda=min_lambda, max_lambda=max_lambda, mask_z=mask_z)
         statcopy = statcube
-    data_background, var_background = manip.collapse_container(datacontainer, min_lambda=min_lambda,
-                                                               max_lambda=max_lambda, var_thresh=var_factor)
+        var_background = manip.collapse_cube(statcopy, min_lambda=min_lambda, max_lambda=max_lambda, mask_z=mask_z)
 
     image_background = background.sextractor_background(data_background, var_background, threshold)
     void_background = data_background - image_background
@@ -69,7 +84,7 @@ def find_sources(datacontainer, statcube = None,
                               err=var_background,
                               minarea=min_area,
                               filter_type='matched',
-                              gain=gain,
+                              #gain=gain,
                               clean=True,
                               deblend_cont=deblend_val,
                               filter_kernel=None)
@@ -93,85 +108,91 @@ def find_sources(datacontainer, statcube = None,
 
 
 def background_cube(datacontainer,
-                    sig_source_detect=5.0,
-                    min_source_area=16.,
+                    sig_source_detect=3.,
+                    min_source_area=12.,
                     source_mask_size=6.,
-                    source_size_max=50.,
-                    source_ellipse_max=0.9,
-                    edges=10):
-    """
+                    edges=50):
+    """Creates two datacubes from an original IFUcube. One of the background with removed sources
+    and smoothed background. Another with the associated mask used for removal.
 
     Parameters
     ----------
-    datacontainer:
-
-    sig_source_detect:
-
-    min_source_area:
-    source_mask_size:
-    source_size_max:
-    source_ellipse_max:
-    edges:
+    datacontainer : IFUcube object
+        data initialized in cubeClass
+    sig_source_detect : float, int, optional
+        value of source significance to be detected (default is 3.)
+    min_source_area : float, int, optional
+        minimum area of sources to be considered for masking (default is 12.)
+    source_mask_size : float, int, optional
+        mask size (default is 6.)
+    edges : int, float
+        pixel count to be removed from the edges of the image (default is 50)
 
     Returns
     -------
-
+    cube_bg : np.array
+        data cube of the mask removed background
+    mask_bg : np.array
+        data cube of the masks implemented
     """
-    datacopy, statcopy = datacontainer.get_data_stat()
+
+    datacopy = datacontainer.get_data()
     z_max, y_max, x_max = np.shape(datacopy)
     cube_bg = np.full_like(datacopy, np.nan)
     mask_bg = np.copy(cube_bg)
     for index in range(z_max):
         tmpdatacopy = np.copy(datacopy[index, :, :])
-        tmpstatcopy = np.copy(statcopy[index, :, :])
-        x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacontainer, min_lambda=index,
+        x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacontainer,
+                                                                            min_lambda=index,
                                                                             max_lambda=index,
                                                                             sig_detect=sig_source_detect,
                                                                             min_area=min_source_area)
-        maskBg2D = np.zeros_like(tmpdatacopy)
+        mask_bg_2D = np.zeros_like(tmpdatacopy)
         sky_mask = manip.location(tmpdatacopy,
                                   x_position=x_pos, y_position=y_pos,
                                   semi_maj=source_mask_size * maj_axis,
                                   semi_min=source_mask_size * min_axis,
                                   theta=angle)
 
-        maskBg2D[(sky_mask == 1)] = 1
+        mask_bg_2D[(sky_mask == 1)] = 1
 
         edges_mask = np.ones_like(sky_mask, int)
         edges_mask[int(edges):-int(edges), int(edges):-int(edges)] = 0
-        maskBg2D[(edges_mask == 1)] = 1
+        mask_bg_2D[(edges_mask == 1)] = 1
 
-        mask_Bg_3D = np.broadcast_to((maskBg2D == 1), tmpdatacopy.shape)
+        mask_bg_3D = np.broadcast_to((mask_bg_2D == 1), tmpdatacopy.shape)
 
-        tmpdatacopy[(mask_Bg_3D == 1)] = np.nan
-        bgDataImage = np.copy(tmpdatacopy)
-        bgDataImage[(maskBg2D == 1)] = np.nan
+        tmpdatacopy[(mask_bg_3D == 1)] = np.nan
+        bg_datacopy = np.copy(tmpdatacopy)
+        bg_datacopy[(mask_bg_2D == 1)] = np.nan
+
+        cube_bg[index] = bg_datacopy
+        mask_bg[index] = mask_bg_2D
+
+        # preserve memory
         del tmpdatacopy
-        del tmpstatcopy
-        cube_bg[index] = bgDataImage
-        del bgDataImage
-        mask_bg[index] = maskBg2D
-        del maskBg2D
+        del bg_datacopy
+        del mask_bg_2D
+        del x_pos, y_pos, maj_axis, min_axis, angle, all_objects
+
     return cube_bg, mask_bg
 
 
 def statBg(datacontainer,
            min_lambda=None,
            max_lambda=None,
-           maskZ=None,
-           maskXY=None,
-           sigSourceDetection=5.0,
-           minSourceArea=16.,
-           sizeSourceMask=6.,
-           maxSourceSize=50.,
-           maxSourceEll=0.9,
+           mask_z=None,
+           mask_xy=None,
+           sig_source_detect=5.0,
+           min_source_area=16.,
+           source_mask_size=6.,
            edges=60,
            output='Object',
            debug=False,
            showDebug=False):
     """This estimates the sky background of a MUSE cube after removing sources.
-    Sources are detected in an image created by collapsing the cube between minChannel
-    and maxChannel (considering maskZ as mask for bad channels).
+    Sources are detected in an image created by collapsing the cube between min_lambda
+    and max_lambda (considering mask_z as mask for bad channels).
     Average, std, and median will be saved.
 
     Parameters
@@ -182,27 +203,21 @@ def statBg(datacontainer,
         min channel to create the image where to detect sources
     max_lambda : int
         max channel to create the image where to detect sources
-    maskZ : int, bool, optional
+    mask_z : int, bool, optional
         when 1 (or True), this is a channel to be removed (default is None)
-    maskXY : int, bool, optional
+    mask_xy : int, bool, optional
         when 1 (or True), this spatial pixel will remove from
         the estimate of the b/g values (default is None)
-    sigSourceDetection : float
+    sig_source_detect : float
         detection sigma threshold for sources in the
         collapsed cube (default is 5.0)
-    minSourceArea : float
+    min_source_area : float
         min area for source detection in the collapsed
         cube (default is 16)
-    sizeSourceMask : float
+    source_mask_size : float
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
         axis of the detection. Default is 6.
-    maxSourceSize : float
-        sources with semi-major or semi-minor axes larger than this
-        value will not be considered in the foreground source model (default is 50)
-    maxSourceEll : float
-        sources with ellipticity larger than this value will not be
-        considered in the foreground source model (default is 0.9)
     edges : int
         frame size removed to avoid problems related to the edge
         of the image
@@ -221,77 +236,75 @@ def statBg(datacontainer,
     """
 
     print("statBg: Starting estimate of b/g stats")
+    datacopy = datacontainer.get_data()
 
-    print("statBg: Collapsing cube")
-
-    data_background, _ = manip.collapse_container(datacontainer, min_lambda=min_lambda,
-                                                  max_lambda=max_lambda)
+    data_background = manip.collapse_cube(datacopy, max_lambda=max_lambda, min_lambda=min_lambda, mask_z=mask_z)
     print("statBg: Searching for sources in the collapsed cube")
-    x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacontainer,
-                                                                        sig_detect=sigSourceDetection,
-                                                                        min_area=minSourceArea)
+    x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacontainer, min_lambda=min_lambda,
+                                                                        max_lambda=max_lambda,
+                                                                        sig_detect=sig_source_detect,
+                                                                        min_area=min_source_area)
 
     print("statBg: Detected {} sources".format(len(x_pos)))
     print("statBg: Masking sources")
-    maskBg2D = np.zeros_like(data_background)
+    mask_bg_2D = np.zeros_like(data_background)
 
     sky_mask = manip.location(data_background, x_position=x_pos, y_position=y_pos,
-                              semi_maj=sizeSourceMask * maj_axis,
-                              semi_min=sizeSourceMask * min_axis,
+                              semi_maj=source_mask_size * maj_axis,
+                              semi_min=source_mask_size * min_axis,
                               theta=angle)
 
-    maskBg2D[(sky_mask == 1)] = 1
+    mask_bg_2D[(sky_mask == 1)] = 1
 
     print("statBg: Masking Edges")
     # removing edges. This mask is 0 if it is a good pixel, 1 if it is a
     # pixel at the edge
     edges_mask = np.ones_like(sky_mask, dtype=int)
     edges_mask[int(edges):-int(edges), int(edges):-int(edges)] = 0
-    maskBg2D[(edges_mask == 1)] = 1
+    mask_bg_2D[(edges_mask == 1)] = 1
 
-    if maskXY is not None:
-        print("statBg: Masking spatial pixels from input maskXY")
-        maskBg2D[(maskXY == 1)] = 1
+    if mask_xy is not None:
+        print("statBg: Masking spatial pixels from input mask_xy")
+        mask_bg_2D[(mask_xy == 1)] = 1
 
     print("statBg: Performing b/g statistic")
-    datacopy = datacontainer.get_data()
-    mask_Bg_3D = np.broadcast_to((maskBg2D == 1), datacopy.shape)
-    datacopy[(mask_Bg_3D == 1)] = np.nan
-    averageBg, stdBg, medianBg, varBg, pixelsBg = np.nanmean(datacopy, axis=(1, 2)), \
-                                                  np.nanstd(datacopy, axis=(1, 2)), \
-                                                  np.nanmedian(datacopy, axis=(1, 2)), \
-                                                  np.nanvar(datacopy, axis=(1, 2)), \
-                                                  np.count_nonzero(~np.isnan(datacopy), axis=(1, 2))
-    bgDataImage = np.copy(data_background)
-    bgDataImage[(maskBg2D == 1)] = np.nan
+    mask_bg_3D = np.broadcast_to((mask_bg_2D == 1), datacopy.shape)
+    datacopy[(mask_bg_3D == 1)] = np.nan
+    average_bg, std_bg, median_bg, var_bg, pixels_bg = np.nanmean(datacopy, axis=(1, 2)), \
+                                                       np.nanstd(datacopy, axis=(1, 2)), \
+                                                       np.nanmedian(datacopy, axis=(1, 2)), \
+                                                       np.nanvar(datacopy, axis=(1, 2)), \
+                                                       np.count_nonzero(~np.isnan(datacopy), axis=(1, 2))
+    bg_datacopy = np.copy(data_background)
+    bg_datacopy[(mask_bg_2D == 1)] = np.nan
 
     if debug:
         print("statBg: Saving debug image on {}_BgRegion.pdf".format(output))
-        tempBgFlux = np.nanmean(bgDataImage)
-        tempBgStd = np.nanstd(bgDataImage)
+        bg_flux_copy = np.nanmean(bg_datacopy)
+        bg_std_copy = np.nanstd(bg_datacopy)
 
         plt.figure(1, figsize=(12, 6))
 
-        axImage = plt.subplot2grid((1, 2), (0, 0), colspan=1)
-        axClean = plt.subplot2grid((1, 2), (0, 1), colspan=1)
+        ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
+        ax_clean = plt.subplot2grid((1, 2), (0, 1), colspan=1)
 
         # Plotting field image
-        axImage.imshow(data_background,
-                       cmap="Greys", origin="lower",
-                       vmin=tempBgFlux - 3. * tempBgStd,
-                       vmax=tempBgFlux + 3. * tempBgStd)
-        axImage.set_xlabel(r"X [Pixels]", size=30)
-        axImage.set_ylabel(r"Y [Pixels]", size=30)
-        axImage.set_title(r"Collapsed image")
+        ax_image.imshow(data_background,
+                        cmap="Greys", origin="lower",
+                        vmin=bg_flux_copy - 3. * bg_std_copy,
+                        vmax=bg_flux_copy + 3. * bg_std_copy)
+        ax_image.set_xlabel(r"X [Pixels]", size=30)
+        ax_image.set_ylabel(r"Y [Pixels]", size=30)
+        ax_image.set_title(r"Collapsed image")
 
         # Plotting background image
-        axClean.imshow(bgDataImage,
-                       cmap="Greys", origin="lower",
-                       vmin=tempBgFlux - 3. * tempBgStd,
-                       vmax=tempBgFlux + 3. * tempBgStd)
-        axClean.set_xlabel(r"X [Pixels]", size=30)
-        axClean.set_ylabel(r"Y [Pixels]", size=30)
-        axClean.set_title(r"b/g image")
+        ax_clean.imshow(bg_datacopy,
+                        cmap="Greys", origin="lower",
+                        vmin=bg_flux_copy - 3. * bg_std_copy,
+                        vmax=bg_flux_copy + 3. * bg_std_copy)
+        ax_clean.set_xlabel(r"X [Pixels]", size=30)
+        ax_clean.set_ylabel(r"Y [Pixels]", size=30)
+        ax_clean.set_title(r"b/g image")
 
         plt.tight_layout()
         plt.savefig(output + "_BgRegion.pdf", dpi=400.,
@@ -302,34 +315,32 @@ def statBg(datacontainer,
 
     # preserve memory
     del data_background
-    del mask_Bg_3D
+    del mask_bg_3D
     del sky_mask
     del edges_mask
     del all_objects
     del datacopy
     gc.collect()
 
-    return averageBg, medianBg, stdBg, varBg, pixelsBg, maskBg2D, bgDataImage
+    return average_bg, median_bg, std_bg, var_bg, pixels_bg, mask_bg_2D, bg_datacopy
 
 
 def subtractBg(datacontainer,
                min_lambda=None,
                max_lambda=None,
-               maskZ=None,
-               maskXY=None,
-               sigSourceDetection=5.0,
-               minSourceArea=16.,
-               sizeSourceMask=6.,
-               maxSourceSize=50.,
-               maxSourceEll=0.9,
+               mask_z=None,
+               mask_xy=None,
+               sig_source_detect=5.0,
+               min_source_area=16.,
+               source_mask_size=6.,
                edges=60,
                output='Object',
                debug=False,
                showDebug=False):
     """This macro remove residual background in the cubes and fix the variance
     vector after masking sources. Sources are detected in an image created by
-    collapsing the cube between min_lambda and max_lambda (considering maskZ as
-    mask for bad channels). If statCube is none, it will be created and for each
+    collapsing the cube between min_lambda and max_lambda (considering mask_z as
+    mask for bad channels). If statcube is none, it will be created and for each
     channel, the variance of the background will be used.
 
    Parameters
@@ -340,27 +351,21 @@ def subtractBg(datacontainer,
         min channel to create the image to detected sources
     max_lambda : int
         max channel to create the image to detected sources
-    maskZ : int, bool, optional
+    mask_z : int, bool, optional
         when 1 (or True), this is a channel to be removed while
         collapsing the cube to detect sources (default is None)
-    maskXY : int, bool, optional
+    mask_xy : int, bool, optional
         when 1 (or True), this spatial pixel will be removed from
         the estimate of the b/g values (default is None)
-    sigSourceDetection : float
+    sig_source_detect : float
         detection sigma threshold for sources in the
         collapsed cube (default is 5.0)
-    minSourceArea : float
+    min_source_area : float
         min area for source detection in the collapsed cube (default is 16.)
-    sizeSourceMask : float
+    source_mask_size : float
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
         axis of the detection (default is 6.)
-    maxSourceSize : float
-        sources with semi-major or semi-minor axes larger than this
-        value will not be considered in the foreground source model (default is 50.)
-    maxSourceEll : float
-        sources with ellipticity larger than this value will not
-        be considered in the foreground source model (default is 0.9)
     edges : int
         frame size removed to avoid problems related to the edge
         of the image (default is 60)
@@ -387,56 +392,55 @@ def subtractBg(datacontainer,
     print("subtractBg: Starting the procedure to subtract the background")
 
     # Getting spectrum of the background
-    bg_average, bg_median, bg_std, bg_var, bg_pixels, bg_mask_2d, bg_data_image = statBg(datacontainer,
-                                                                                min_lambda=min_lambda,
-                                                                                max_lambda=max_lambda,
-                                                                                maskZ=maskZ,
-                                                                                maskXY=maskXY,
-                                                                                sigSourceDetection=sigSourceDetection,
-                                                                                minSourceArea=minSourceArea,
-                                                                                sizeSourceMask=sizeSourceMask,
-                                                                                maxSourceSize=maxSourceSize,
-                                                                                maxSourceEll=maxSourceEll,
-                                                                                edges=edges,
-                                                                                output=output,
-                                                                                debug=debug,
-                                                                                showDebug=showDebug)
+    bg_average, bg_median, bg_std, bg_var, \
+    bg_pixels, bg_mask_2d, bg_data_image = statBg(datacontainer,
+                                                  min_lambda=min_lambda,
+                                                  max_lambda=max_lambda,
+                                                  mask_z=mask_z,
+                                                  mask_xy=mask_xy,
+                                                  sig_source_detect=sig_source_detect,
+                                                  min_source_area=min_source_area,
+                                                  source_mask_size=source_mask_size,
+                                                  edges=edges,
+                                                  output=output,
+                                                  debug=debug,
+                                                  showDebug=showDebug)
 
     datacopy, statcube = datacontainer.get_data_stat()
 
-    z_max, y_max, x_max = datacontainer.get_dimensions()
-    print("subtractBg: Subtracting background from dataCube")
+    z_max, y_max, x_max = np.shape(datacopy)
+    print("subtractBg: Subtracting background from datacube")
 
     for channel in range(0, z_max):
         datacopy[channel, :, :] -= bg_median[channel]
     if statcube is None:
-        print("subtractBg: Creating statCube with variance inferred from background")
-        statcopy = np.copy(datacontainer)
+        print("subtractBg: Creating statcube with variance inferred from background")
+        statcopy = np.copy(datacopy)
         for channel in range(0, z_max):
             statcopy[channel, :, :] = bg_var[channel]
     else:
-        print("subtractBg: Estimating correction for statCube variance")
+        print("subtractBg: Estimating correction for statcube variance")
         # Removing sources and edges
-        statcopy_Nan = np.copy(statcube)
-        maskBg3D = np.broadcast_to((bg_mask_2d == 1), statcopy_Nan.shape)
-        statcopy_Nan[(maskBg3D == 1)] = np.nan
+        statcopy_nan = np.copy(statcube)
+        bg_mask_3D = np.broadcast_to((bg_mask_2d == 1), statcopy_nan.shape)
+        statcopy_nan[(bg_mask_3D == 1)] = np.nan
         # Calculating average variance per channel
-        averageStatBg = np.nanmean(statcopy_Nan, axis=(1, 2))
-        del statcopy_Nan
-        del maskBg3D
+        averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))
+        del statcopy_nan
+        del bg_mask_3D
         # Rescaling cube variance
-        scaleFactor = bg_var / averageStatBg
+        scale_factor = bg_var / averageStatBg
         statcopy = np.copy(statcube)
         for channel in range(0, z_max):
-            statcopy[channel, :, :] *= scaleFactor[channel]
-        print("subtractBg: The average correction factor for variance is {:.5f}".format(np.average(scaleFactor)))
+            statcopy[channel, :, :] *= scale_factor[channel]
+        print("subtractBg: The average correction factor for variance is {:.5f}".format(np.average(scale_factor)))
         if debug:
             manip.nicePlot()
             plt.figure(1, figsize=(9, 6))
-            plt.plot(range(0, z_max), scaleFactor, color='black')
+            plt.plot(range(0, z_max), scale_factor, color='black')
             plt.xlabel(r"Channels")
             plt.ylabel(r"Correction Factor")
-            plt.axhline(np.average(scaleFactor))
+            plt.axhline(np.average(scale_factor))
             plt.savefig(output + "_VarianceCorrection.pdf", dpi=400.,
                         format="pdf", bbox_inches="tight")
             if showDebug:
@@ -461,14 +465,14 @@ def subtractBg(datacontainer,
     return datacopy, statcopy, bg_average, bg_median, bg_std, bg_var, bg_pixels, bg_mask_2d, bg_data_image
 
 
-def sourcesFg(dataImage,
-              statImage=None,
-              sigSourceDetection=5.0,
-              minSourceArea=16.,
-              sizeSourceMask=6.,
-              maxSourceSize=50.,
-              maxSourceEll=0.9,
-              radiusNorm=1.,
+def sourcesFg(datacube,
+              statcube=None,
+              sig_source_detect=5.0,
+              min_source_area=16.,
+              source_mask_size=6.,
+              max_source_size=50.,
+              max_source_ell=0.9,
+              rad_norm=1.,
               edges=60,
               output='Object',
               debug=False,
@@ -478,28 +482,28 @@ def sourcesFg(dataImage,
 
     Parameters
     ----------
-    dataImage : np.array
+    datacube : np.array
         data in a 2D array
-    statImage : np.array
+    statcube : np.array
         variance in a 2D array
-    sigSourceDetection : float
+    sig_source_detect : float
         detection sigma threshold for sources in the
         collapsed cube. Defaults is 5.0
-    minSourceArea : float
+    min_source_area : float
         min area for source detection in the collapsed
         cube. Default is 16.
-    sizeSourceMask : float
+    source_mask_size : float
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
         axis of the detection. Default is 6.
-    maxSourceSize : float
+    max_source_size : float
         sources with semi-major or semi-minor axes larger than this
         value will not considered in the foreground source model.
         Default is 50.
-    maxSourceEll : float
+    max_source_ell : float
         sources with ellipticity larger than this value will not
         considered in the foreground source model. Default is 0.9.
-    radiusNorm : np.float
+    rad_norm : float
         radius where to normalize the sources model. Default is 1.
     edges : np.int
         frame size removed to avoid problems related to the edge
@@ -509,240 +513,244 @@ def sourcesFg(dataImage,
     Returns
     -------
     fgSources : dict
-        Dictionary containing relvant informations on the detected
+        Dictionary containing relevant information on the detected
         sources including data, masks, flux, etc.
     fgAllSources : astropy table
         Astropy table containing the information of all sources detected
         (i.e. without any cleaning). This is the direct output of the
         source finding algorithm.
-    fgBackgroundFlux, fgBackgroundSigma : np.float
+    fgBackgroundFlux, fgBackgroundSigma : float
         Average background flux and sigma after source extractions
     """
 
     print("sourcesFg: Searching for sources in the image")
-    yMax, xMax = np.shape(dataImage)
-    fgXPix, fgYPix, fgAPix, fgBPix, fgAngle, fgAllSources = find_sources(dataImage, statImage,
-                                                                         sig_detect=sigSourceDetection,
-                                                                         min_area=minSourceArea)
-    print("sourcesFg: Detected {} sources".format(len(fgXPix)))
+    y_max, x_max = np.shape(datacube)
+    fg_xpos, fg_ypos, fg_maj, fg_min, fg_angle, fg_all_sources = find_sources(datacube, statcube,
+                                                                              sig_detect=sig_source_detect,
+                                                                              min_area=min_source_area)
+    print("sourcesFg: Detected {} sources".format(len(fg_xpos)))
 
     print("sourcesFg: Perform some cleaning on the detected sources")
     # Checking that, within RadiusNorm, each source is at least
     # sig_source_detection/2. sigma above the background
     # skyMask is a mask where all sources are masked as 1,
     # while the background is set to 0
-    FgDataBackground = np.copy(dataImage)
-    skyMask = manip.location(dataImage, fgXPix, fgYPix,
-                             semi_maj=sizeSourceMask * fgAPix,
-                             semi_min=sizeSourceMask * fgBPix,
-                             theta=fgAngle)
-    FgDataBackground[(skyMask==1)] = np.nan
+    fg_datacopy = np.copy(datacube)
+    sky_mask = manip.location(datacube, fg_xpos, fg_ypos,
+                              semi_maj=source_mask_size * fg_maj,
+                              semi_min=source_mask_size * fg_min,
+                              theta=fg_angle)
+    fg_datacopy[(sky_mask == 1)] = np.nan
 
     # removing edges. This mask is 0 if it is a good pixel, 1 if it is a
     # pixel at the edge
-    edgesMask = np.ones_like(skyMask, int)
-    edgesMask[int(edges):- int(edges), int(edges):- int(edges)] = 0
-    FgDataBackground[(edgesMask==1)] = np.nan
+    edges_mask = np.ones_like(sky_mask, int)
+    edges_mask[int(edges):- int(edges), int(edges):- int(edges)] = 0
+    fg_datacopy[(edges_mask == 1)] = np.nan
 
     # removing extreme values. This mask is 0 if it is a good pixel,
     # 1 if it is a pixel with an extreme value
-    extremeMask = np.ones_like(skyMask, int)
-    fgBackgroundFlux = np.nanmedian(FgDataBackground)
-    fgBackgroundSigma = np.nanstd(FgDataBackground)
-    extremeMask[np.abs((dataImage-fgBackgroundFlux)/fgBackgroundSigma)<2.99] = 0
-    FgDataBackground[(extremeMask==1)] = np.nan
+    extreme_mask = np.ones_like(sky_mask, int)
+    fg_flux = np.nanmedian(fg_datacopy)
+    fg_sigma = np.nanstd(fg_datacopy)
+    extreme_mask[np.abs((datacube - fg_flux) / fg_sigma) < 2.99] = 0
+    fg_datacopy[(extreme_mask == 1)] = np.nan
 
     # Checking values of the background
-    fgBackgroundFlux = np.nanmedian(FgDataBackground)
-    fgBackgroundSigma = np.nanstd(FgDataBackground)
-    fgDataHist, fgDataEdges = np.histogram(FgDataBackground[np.isfinite(FgDataBackground)].flatten(),
-                                           bins="fd", density=True)
+    fg_flux = np.nanmedian(fg_datacopy)
+    fg_sigma = np.nanstd(fg_datacopy)
+    fg_data_hist, fg_data_edges = np.histogram(fg_datacopy[np.isfinite(fg_datacopy)].flatten(),
+                                               bins="fd", density=True)
     # fitting of the histogram
-    gaussBest, gaussCovar = curve_fit(manip.gaussian,
-                                      fgDataEdges[:-1],
-                                      fgDataHist,
-                                      p0=[1. / (fgBackgroundSigma * np.sqrt((2. * np.pi))),
-                                      fgBackgroundFlux,
-                                      fgBackgroundSigma])
+    gauss_best, gauss_covar = curve_fit(manip.gaussian,
+                                        fg_data_edges[:-1],
+                                        fg_data_hist,
+                                        p0=[1. / (fg_sigma * np.sqrt((2. * np.pi))),
+                                            fg_flux,
+                                            fg_sigma])
 
     # A second round of global sky subtraction is performed
-    print("sourcesFg: A residual background of {:.4f} counts has been removed".format(fgBackgroundFlux))
-    fgDataNoBg = np.copy(dataImage) - fgBackgroundFlux
+    print("sourcesFg: A residual background of {:.4f} counts has been removed".format(fg_flux))
+    fg_data_no_bg = np.copy(datacube) - fg_flux
 
     # Running force photometry on the detected sources
-    print("sourcesFg: Aperture photometry on sources with radius {:.4f} pix.".format(radiusNorm))
-    fgFluxCent, fgErrFluxCent = manip.quickApPhotmetryNoBg(fgDataNoBg,
-                                                           statImage,
-                                                           fgXPix,
-                                                           fgYPix,
-                                                           obj_rad=radiusNorm)
+    print("sourcesFg: Aperture photometry on sources with radius {:.4f} pix.".format(rad_norm))
+    fg_flux_cent, fg_err_flux_cent = manip.quickApPhotmetryNoBg(fg_data_no_bg,
+                                                                statcube,
+                                                                fg_xpos,
+                                                                fg_ypos,
+                                                                obj_rad=rad_norm)
 
     # Removing sources that are at the edge of the detection at the center
-    fgBright = fgFluxCent > .5 * sigSourceDetection * fgErrFluxCent
-    fgFluxCent = fgFluxCent[fgBright]
-    fgErrFluxCent = fgErrFluxCent[fgBright]
-    fgXPix = fgXPix[fgBright]
-    fgYPix = fgYPix[fgBright]
-    fgAPix = fgAPix[fgBright]
-    fgBPix = fgBPix[fgBright]
-    fgAngle = fgAngle[fgBright]
-    print("sourcesFg: Detected {} sources above {} sigma at the center".format(len(fgXPix), .5*sigSourceDetection))
+    fg_bright = fg_flux_cent > .5 * sig_source_detect * fg_err_flux_cent
+    fg_flux_cent = fg_flux_cent[fg_bright]
+    fg_err_flux_cent = fg_err_flux_cent[fg_bright]
+    fg_xpos = fg_xpos[fg_bright]
+    fg_ypos = fg_ypos[fg_bright]
+    fg_maj = fg_maj[fg_bright]
+    fg_min = fg_min[fg_bright]
+    fg_angle = fg_angle[fg_bright]
+    print("sourcesFg: Detected {} sources above {} sigma at the center".format(len(fg_xpos), .5 * sig_source_detect))
+
     # Remove sources at the edge of the FOV
-    fgXlocation = (fgXPix > edges) & (fgXPix < (xMax-edges))
-    fgYlocation = (fgYPix > edges) & (fgYPix < (yMax-edges))
-    fgLocation = fgXlocation & fgYlocation
-    fgFluxCent = fgFluxCent[fgLocation]
-    fgErrFluxCent = fgErrFluxCent[fgLocation]
-    fgXPix = fgXPix[fgLocation]
-    fgYPix = fgYPix[fgLocation]
-    fgAPix = fgAPix[fgLocation]
-    fgBPix = fgBPix[fgLocation]
-    fgAngle = fgAngle[fgLocation]
-    print("sourcesFg: Detected {} sources after edges removal".format(len(fgXPix)))
+    fg_x_loc = (fg_xpos > edges) & (fg_xpos < (x_max - edges))
+    fg_y_loc = (fg_ypos > edges) & (fg_ypos < (y_max - edges))
+    fg_location = fg_x_loc & fg_y_loc
+    fg_flux_cent = fg_flux_cent[fg_location]
+    fg_err_flux_cent = fg_err_flux_cent[fg_location]
+    fg_xpos = fg_xpos[fg_location]
+    fg_ypos = fg_ypos[fg_location]
+    fg_maj = fg_maj[fg_location]
+    fg_min = fg_min[fg_location]
+    fg_angle = fg_angle[fg_location]
+    print("sourcesFg: Detected {} sources after edges removal".format(len(fg_xpos)))
+
     # Removes crazy values axis of elliptical sources
-    fgASize = fgAPix < maxSourceSize
-    fgBSize = fgBPix < maxSourceSize
-    fgAbig   = np.max((fgAPix, fgBPix), axis=0)
-    fgAsmall = np.min((fgAPix, fgBPix), axis=0)
-    fgEll = 1.-(fgAsmall/fgAbig)
-    fgEllCut = (fgEll < np.max([np.percentile(fgEll, 10), maxSourceEll])) & (fgEll > 0.)
-    fgShape = fgASize & fgBSize & fgEllCut
-    fgFluxCent = fgFluxCent[fgShape]
-    fgErrFluxCent = fgErrFluxCent[fgShape]
-    fgXPix = fgXPix[fgShape]
-    fgYPix = fgYPix[fgShape]
-    fgAPix = fgAPix[fgShape]
-    fgBPix = fgBPix[fgShape]
-    fgAngle = fgAngle[fgShape]
-    print("sourcesFg: Removing sources with size larger than {}".format(maxSourceSize))
-    print("sourcesFg: Removing sources with ellepticity larger than {}".format(np.max([np.percentile(fgEll, 10), maxSourceEll])))
-    print("sourcesFg: Detected {} sources after removing unusal shapes".format(len(fgXPix)))
-    del FgDataBackground
-    del fgBright
-    del fgLocation
-    del fgShape
+    fg_maj_size = fg_maj < max_source_size
+    fg_min_size = fg_min < max_source_size
+    fg_maj_big = np.max((fg_maj, fg_min), axis=0)
+    fg_maj_small = np.min((fg_maj, fg_min), axis=0)
+    fg_ell = 1. - (fg_maj_small / fg_maj_big)
+    fg_ell_cut = (fg_ell < np.max([np.percentile(fg_ell, 10), max_source_ell])) & (fg_ell > 0.)
+    fg_shape = fg_maj_size & fg_min_size & fg_ell_cut
+    fg_flux_cent = fg_flux_cent[fg_shape]
+    fg_err_flux_cent = fg_err_flux_cent[fg_shape]
+    fg_xpos = fg_xpos[fg_shape]
+    fg_ypos = fg_ypos[fg_shape]
+    fg_maj = fg_maj[fg_shape]
+    fg_min = fg_min[fg_shape]
+    fg_angle = fg_angle[fg_shape]
+    print("sourcesFg: Removing sources with size larger than {}".format(max_source_size))
+    print("sourcesFg: Removing sources with ellepticity larger than {}".format(
+        np.max([np.percentile(fg_ell, 10), max_source_ell])))
+    print("sourcesFg: Detected {} sources after removing unusal shapes".format(len(fg_xpos)))
+
+    del fg_datacopy
+    del fg_bright
+    del fg_location
+    del fg_shape
 
     if debug:
         print("sourcesFg: Saving degub image on {}_fgSourcesMask.pdf".format(output))
 
-        FgDataBackground = np.copy(dataImage)
-        skyMask = manip.location(dataImage, fgXPix, fgYPix,
-                                 semi_maj=sizeSourceMask * fgAPix,
-                                 semi_min=sizeSourceMask * fgBPix,
-                                 theta=fgAngle)
-        FgDataBackground[(skyMask==1)] = np.nan
-        edgesMask = np.ones_like(skyMask, int)
-        edgesMask[int(edges):-int(edges), int(edges):-int(edges)] = 0
-        FgDataBackground[(edgesMask==1)] = np.nan
+        fg_datacopy = np.copy(datacube)
+        sky_mask = manip.location(datacube, fg_xpos, fg_ypos,
+                                  semi_maj=source_mask_size * fg_maj,
+                                  semi_min=source_mask_size * fg_min,
+                                  theta=fg_angle)
+        fg_datacopy[(sky_mask == 1)] = np.nan
+        edges_mask = np.ones_like(sky_mask, int)
+        edges_mask[int(edges):-int(edges), int(edges):-int(edges)] = 0
+        fg_datacopy[(edges_mask == 1)] = np.nan
 
         plt.figure(1, figsize=(18, 6))
         gs = gridspec.GridSpec(1, 3)
 
-        axImage = plt.subplot2grid((1, 3), (0, 0), colspan=1)
-        axMask  = plt.subplot2grid((1, 3), (0, 1), colspan=1)
-        axHist  = plt.subplot2grid((1, 3), (0, 2), colspan=1)
+        ax_image = plt.subplot2grid((1, 3), (0, 0), colspan=1)
+        ax_mask = plt.subplot2grid((1, 3), (0, 1), colspan=1)
+        ax_hist = plt.subplot2grid((1, 3), (0, 2), colspan=1)
 
         # Plotting field image
-        axImage.imshow(dataImage,
-                       cmap="Greys", origin="lower",
-                       vmin=fgBackgroundFlux - 3. * fgBackgroundSigma,
-                       vmax=fgBackgroundFlux + 3. * fgBackgroundSigma)
-        axImage.set_xlabel(r"X [Pixels]", size=30)
-        axImage.set_ylabel(r"Y [Pixels]", size=30)
-        axImage.set_title(r"Collapsed image")
+        ax_image.imshow(datacube,
+                        cmap="Greys", origin="lower",
+                        vmin=fg_flux - 3. * fg_sigma,
+                        vmax=fg_flux + 3. * fg_sigma)
+        ax_image.set_xlabel(r"X [Pixels]", size=30)
+        ax_image.set_ylabel(r"Y [Pixels]", size=30)
+        ax_image.set_title(r"Collapsed image")
 
         # Plotting field mask
-        axMask.imshow(FgDataBackground,
-                      cmap="Greys", origin="lower",
-                      vmin=fgBackgroundFlux - 3. * fgBackgroundSigma,
-                      vmax=fgBackgroundFlux + 3. * fgBackgroundSigma)
-        axMask.set_xlabel(r"X [Pixels]", size=30)
-        axMask.set_ylabel(r"Y [Pixels]", size=30)
-        axMask.set_title(r"Background")
+        ax_mask.imshow(fg_datacopy,
+                       cmap="Greys", origin="lower",
+                       vmin=fg_flux - 3. * fg_sigma,
+                       vmax=fg_flux + 3. * fg_sigma)
+        ax_mask.set_xlabel(r"X [Pixels]", size=30)
+        ax_mask.set_ylabel(r"Y [Pixels]", size=30)
+        ax_mask.set_title(r"Background")
 
         # Plotting pixel distribution
-        axHist.step(fgDataEdges[:-1], fgDataHist, color="gray",
-                    zorder=3)
-        axHist.plot(fgDataEdges[:-1], manip.gaussian(fgDataEdges[:-1], * gaussBest),
-                    color='black', zorder=2)
-        axHist.axvline(fgBackgroundFlux, color="black",
-                       zorder=1, linestyle=':')
-        axHist.set_xlim(left=fgBackgroundFlux - 3. * fgBackgroundSigma,
-                        right=fgBackgroundFlux + 3. * fgBackgroundSigma)
-        axHist.text(0.52, 0.9, "Med b/g", transform=axHist.transAxes)
-        axHist.set_ylabel(r"Pixel Distribution", size=30)
-        axHist.set_xlabel(r"Flux", size=30)
-        axHist.set_title(r"b/g flux distribution")
+        ax_hist.step(fg_data_edges[:-1], fg_data_hist, color="gray",
+                     zorder=3)
+        ax_hist.plot(fg_data_edges[:-1], manip.gaussian(fg_data_edges[:-1], *gauss_best),
+                     color='black', zorder=2)
+        ax_hist.axvline(fg_flux, color="black",
+                        zorder=1, linestyle=':')
+        ax_hist.set_xlim(left=fg_flux - 3. * fg_sigma,
+                         right=fg_flux + 3. * fg_sigma)
+        ax_hist.text(0.52, 0.9, "Med b/g", transform=ax_hist.transAxes)
+        ax_hist.set_ylabel(r"Pixel Distribution", size=30)
+        ax_hist.set_xlabel(r"Flux", size=30)
+        ax_hist.set_title(r"b/g flux distribution")
         # axHist.ticklabel_format(axis="y", style="sci", scilimits=(0,0))
 
         plt.tight_layout()
-        plt.savefig(output+"_fgSourcesMask.pdf", dpi=400.,
+        plt.savefig(output + "_fgSourcesMask.pdf", dpi=400.,
                     format="pdf", bbox_inches="tight")
         if showDebug:
             plt.show()
         plt.close()
-        del skyMask
-        del edgesMask
-        del FgDataBackground
+        del sky_mask
+        del edges_mask
+        del fg_datacopy
 
-    print("sourcesFg: Filling dictionary with relevant information on the {} sources".format(len(fgXPix)))
+    print("sourcesFg: Filling dictionary with relevant information on the {} sources".format(len(fg_xpos)))
     # create dictionary with relevant information on the fg sources
-    fgSources = {}
-    fgFlux = np.zeros_like(fgXPix)
-    fgErrFlux = np.zeros_like(fgXPix)
-    fgFluxBg = np.zeros_like(fgXPix)
+    fg_sources = {}
+    fgFlux = np.zeros_like(fg_xpos)
+    fgErrFlux = np.zeros_like(fg_xpos)
+    fgFluxBg = np.zeros_like(fg_xpos)
 
     # create elliptical mask with all sources masked
     # fgMask is a mask where all sources are masked as 1,
     # while the background is set to 0
-    fgMask = manip.location(fgDataNoBg, fgXPix, fgYPix,
-                            semi_maj=sizeSourceMask*fgAPix,
-                            semi_min=sizeSourceMask*fgBPix,
-                            theta=fgAngle)
+    fg_mask = manip.location(fg_data_no_bg, fg_xpos, fg_ypos,
+                             semi_maj=source_mask_size * fg_maj,
+                             semi_min=source_mask_size * fg_min,
+                             theta=fg_angle)
 
-    for sourceIdx in range(0, len(fgXPix)):
+    for sourceIdx in range(0, len(fg_xpos)):
         # create elliptical mask of each source
         # fgThisSourceMask is a mask where the considered source is masked as 1,
         # while the background is set to 0
-        fgThisSourceMask = manip.location(fgDataNoBg, fgXPix[sourceIdx], fgYPix[sourceIdx],
-                                          semi_maj=sizeSourceMask*fgAPix[sourceIdx],
-                                          semi_min=sizeSourceMask*fgBPix[sourceIdx],
-                                          theta=fgAngle[sourceIdx])
-        fgThisMask, fgThisDataNoBg = np.copy(fgMask), np.copy(fgDataNoBg)
+        index_mask = manip.location(fg_data_no_bg, fg_xpos[sourceIdx], fg_ypos[sourceIdx],
+                                    semi_maj=source_mask_size * fg_maj[sourceIdx],
+                                    semi_min=source_mask_size * fg_min[sourceIdx],
+                                    theta=fg_angle[sourceIdx])
+        fgThisMask, fgThisDataNoBg = np.copy(fg_mask), np.copy(fg_data_no_bg)
         # fgThisMask is a mask where all sources are masked as 1 BUT the source considered
-        fgThisMask[(fgThisSourceMask==1)] = np.int(0)
+        fgThisMask[(index_mask == 1)] = np.int(0)
         # if there is another source in the area of fgThisSourceMask
-        # it will be masked within radiusNorm
-        for sourceIdx_tmp in range(0, len(fgXPix)):
-            if (fgXPix[sourceIdx_tmp] != fgXPix[sourceIdx]):
-                fgContaminantSmallMask = manip.location(fgDataNoBg, fgXPix[sourceIdx_tmp], fgYPix[sourceIdx_tmp],
-                                                        semi_maj=radiusNorm,
-                                                        semi_min=radiusNorm,
-                                                        theta=fgAngle[sourceIdx_tmp])
-                fgThisMask[(fgContaminantSmallMask==1)] = 1
+        # it will be masked within rad_norm
+        for sourceIdx_tmp in range(0, len(fg_xpos)):
+            if (fg_xpos[sourceIdx_tmp] != fg_xpos[sourceIdx]):
+                fgContaminantSmallMask = manip.location(fg_data_no_bg, fg_xpos[sourceIdx_tmp], fg_ypos[sourceIdx_tmp],
+                                                        semi_maj=rad_norm,
+                                                        semi_min=rad_norm,
+                                                        theta=fg_angle[sourceIdx_tmp])
+                fgThisMask[(fgContaminantSmallMask == 1)] = 1
         # Loading only data from the current source
-        fgThisSourceData = np.copy(dataImage)
-        fgThisSourceData[(fgThisSourceMask==0)] = 0.
-        fgThisSourceDataNoBg = np.copy(fgDataNoBg)
-        fgThisSourceDataNoBg[(fgThisSourceMask==0)] = 0.
-        fgThisSourceDataNoBg[(fgThisMask==1)] = 0.
+        fgThisSourceData = np.copy(datacube)
+        fgThisSourceData[(index_mask == 0)] = 0.
+        fgThisSourceDataNoBg = np.copy(fg_data_no_bg)
+        fgThisSourceDataNoBg[(index_mask == 0)] = 0.
+        fgThisSourceDataNoBg[(fgThisMask == 1)] = 0.
 
         # Loading dictionary with relevant informations
-        fgSources[sourceIdx] = {}
-        fgSources[sourceIdx]["x"] = fgXPix[sourceIdx]
-        fgSources[sourceIdx]["y"] = fgYPix[sourceIdx]
-        fgSources[sourceIdx]["a"] = fgAPix[sourceIdx]
-        fgSources[sourceIdx]["b"] = fgBPix[sourceIdx]
-        fgSources[sourceIdx]["theta"] = fgAngle[sourceIdx]
-        fgSources[sourceIdx]["flux"] = fgFluxCent[sourceIdx]
-        fgSources[sourceIdx]["errFlux"] = fgErrFluxCent[sourceIdx]
-        fgSources[sourceIdx]["radiusFlux"] = radiusNorm
-        fgSources[sourceIdx]["fluxBg"] = fgBackgroundFlux
-        fgSources[sourceIdx]["errFluxBg"] = fgBackgroundSigma
-        fgSources[sourceIdx]["sourceMask"] = fgThisSourceMask
-        fgSources[sourceIdx]["contaminantMask"] = fgThisMask
-        fgSources[sourceIdx]["sourceData"] = fgThisSourceData
-        fgSources[sourceIdx]["sourceDataNoBg"] = fgThisSourceDataNoBg
+        fg_sources[sourceIdx] = {}
+        fg_sources[sourceIdx]["x"] = fg_xpos[sourceIdx]
+        fg_sources[sourceIdx]["y"] = fg_ypos[sourceIdx]
+        fg_sources[sourceIdx]["a"] = fg_maj[sourceIdx]
+        fg_sources[sourceIdx]["b"] = fg_min[sourceIdx]
+        fg_sources[sourceIdx]["theta"] = fg_angle[sourceIdx]
+        fg_sources[sourceIdx]["flux"] = fg_flux_cent[sourceIdx]
+        fg_sources[sourceIdx]["errFlux"] = fg_err_flux_cent[sourceIdx]
+        fg_sources[sourceIdx]["radiusFlux"] = rad_norm
+        fg_sources[sourceIdx]["fluxBg"] = fg_flux
+        fg_sources[sourceIdx]["errFluxBg"] = fg_sigma
+        fg_sources[sourceIdx]["sourceMask"] = index_mask
+        fg_sources[sourceIdx]["contaminantMask"] = fgThisMask
+        fg_sources[sourceIdx]["sourceData"] = fgThisSourceData
+        fg_sources[sourceIdx]["sourceDataNoBg"] = fgThisSourceDataNoBg
 
     """
     # ToDo : this is not working at the moment.
@@ -757,25 +765,25 @@ def sourcesFg(dataImage,
     del fgThisSourceDataNoBg
     del fgThisSourceData
     del fgThisMask
-    del fgThisSourceMask
+    del index_mask
 
-    return fgSources, fgAllSources, fgBackgroundFlux, fgBackgroundSigma
+    return fg_sources, fg_all_sources, fg_flux, fg_sigma
 
 
 def cleanFg(datacontainer,
-            minChannel=None,
-            maxChannel=None,
-            maskZ=None,
-            maskX=None,
-            maskY=None,
-            maskXYRad=None,
-            sigSourceDetection=5.0,
-            minSourceArea=16.,
-            sizeSourceMask=6.,
-            maxSourceSize=50.,
-            maxSourceEll=0.9,
-            bgSource=False,
-            radiusNorm=1.,
+            min_lambda=None,
+            max_lambda=None,
+            mask_z=None,
+            mask_x=None,
+            mask_y=None,
+            mask_xy_rad=None,
+            sig_source_detect=5.0,
+            min_source_area=16.,
+            mask_size=6.,
+            max_source_size=50.,
+            max_source_ell=0.9,
+            bg_source=False,
+            rad_norm=1.,
             edges=60,
             output='Object',
             debug=False,
@@ -783,48 +791,46 @@ def cleanFg(datacontainer,
             deepDebug=False):
     """ This macro removes sources from a cube creating a model from the data
     itself. The model will be created collapsing the cube between minChannel
-    and maxChannel (considering maskZ as mask for bad channels). The macro
+    and maxChannel (considering mask_z as mask for bad channels). The macro
     will search for sources in this image, and create a normalized model for
     each of them.
     Finally, this model will be propagated in the entire cube and then removed.
 
     Parameters
     ----------
-    dataCube : np.array
+    datacontainer : np.array
         data in a 3D array
-    statCube : np.array
-        variance in a 3D array
-    minChannel : int
-        min channel to create the image where to detected sources
-    maxChannel : int
-        max channel to create the image where to detected sources
-    maskZ : np.array
+    min_lambda : int
+        min channel to create the image where to detect sources
+    max_lambda : int
+        max channel to create the image where to detect sources
+    mask_z : np.array
         when 1 (or True), this is a channel to be removed
-    maskX, maskY, maskXYRad : floats
+    mask_x, mask_y, mask_xy_rad : floats
         x,y location of a source NOT to be subtracted as f/g model.
-        Any sources located within maskXYRad from maskX, maskY will
+        Any sources located within mask_xy_rad from mask_x, maskY will
         not be considered in the creation of the model.
-    sigSourceDetection : float
+    sig_source_detect : float
         detection sigma threshold for sources in the
         collapsed cube. Defaults is 5.0
-    minSourceArea : float
+    min_source_area : float
         min area for source detection in the collapsed
         cube. Default is 16.
-    sizeSourceMask : float
+    mask_size : float
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
         axis of the detection. Default is 6.
-    maxSourceSize : float
+    max_source_size : float
         sources with semi-major or semi-minor axes larger than this
-        value will not considered in the foreground source model.
+        value will not be considered in the foreground source model.
         Default is 50.
-    maxSourceEll : float
-        sources with ellipticity larger than this value will not
+    max_source_ell : float
+        sources with ellipticity larger than this value will not be
         considered in the foreground source model. Default is 0.9.
-    bgSource : bool
+    bg_source : bool
         if True, an additional local background subtraction will be
         performed around each detected sources. Default is True
-    radiusNorm : float
+    rad_norm : float
         radius where to normalize the sources model. Default is 1.
     edges : int
         frame size removed to avoid problems related to the edge
@@ -837,75 +843,82 @@ def cleanFg(datacontainer,
     dataCubeClean : np.array
         data cube from which the detected sources have been removed
     fgSources : dict
-        Dictionary containing relvant informations on the detected
+        Dictionary containing relevant information on the detected
         sources including data, masks, flux, etc.
     """
 
-    print("cleanFg: Starting cleaning of the cube")
-    dataCube, statCube = datacontainer.get_data_stat()
-    zMax, yMax, xMax = np.shape(dataCube)
+    print("cleanFg: Starting the cleaning of the cube")
+    datacopy, statcopy = datacontainer.get_data_stat()
+    z_max, y_max, x_max = np.shape(datacopy)
 
     print("cleanFg: Collapsing cube")
-    fgData, fgStat = manip.collapse_container(datacontainer, maskZ=maskZ,
-                                              min_lambda=minChannel, max_lambda=maxChannel)
+    fg_data, fg_stat = manip.collapse_container(datacontainer, maskZ=mask_z,
+                                                min_lambda=min_lambda, max_lambda=max_lambda)
 
     print("cleanFg: Searching for sources in the collapsed cube")
-    fgSources, fgAllSources, fgBackgroundFlux, fgBackgroundSigma = sourcesFg(fgData, statImage=fgStat,
-                                                                             sigSourceDetection=sigSourceDetection,
-                                                                             minSourceArea=minSourceArea,
-                                                                             sizeSourceMask=sizeSourceMask,
-                                                                             maxSourceSize=maxSourceSize,
-                                                                             maxSourceEll=maxSourceEll,
-                                                                             radiusNorm=radiusNorm,
-                                                                             edges=edges,
-                                                                             output=output,
-                                                                             debug=debug)
+    fg_sources, fg_all_sources, fg_bg_flux, fg_bg_sigma = sourcesFg(fg_data, statcube=fg_stat,
+                                                                    sig_source_detect=sig_source_detect,
+                                                                    min_source_area=min_source_area,
+                                                                    source_mask_size=mask_size,
+                                                                    max_source_size=max_source_size,
+                                                                    max_source_ell=max_source_ell,
+                                                                    rad_norm=rad_norm,
+                                                                    edges=edges,
+                                                                    output=output,
+                                                                    debug=debug)
 
     print("cleanFg: Subtracting contaminants")
     # Subtracting the f/g contamination
-    dataCubeClean = np.copy(dataCube)
-    dataCubeModel = np.zeros_like(dataCube)
-    for sourceIdx in range(0, len(fgSources)):
+    datacopy_clean = np.copy(datacopy)
+    datacopy_model = np.zeros_like(datacopy)
+    for sourceIdx in range(0, len(fg_sources)):
+        from IPython import embed
+        embed()
         print("cleanFg: Removing source {}".format(sourceIdx))
         # creating normalized model
-        fgModel = (fgSources[sourceIdx]["sourceDataNoBg"] / fgSources[sourceIdx]["flux"])
-        fgModel[(fgSources[sourceIdx]["sourceMask"]==0)] = 0.
-        print("         The min, max values for fg model are: {:03.4f}, {:03.4f}".format(np.min(fgModel), np.max(fgModel)))
-        # extract spectrum of the source from the dataCube
-        fgSourcesExtent = np.max([fgSources[sourceIdx]["a"], fgSources[sourceIdx]["b"]])
-        rIbg = 1.1 * sizeSourceMask * (fgSourcesExtent + fgSources[sourceIdx]["radiusFlux"])
-        rObg = rIbg + (5. * fgSources[sourceIdx]["radiusFlux"])
-        if bgSource:
-            fgFluxSource, fgErrFluxSource, fgBgFluxSource = manip.quickSpectrum(dataCube, statcopy=statCube,
-                                                                                x_pos=[sourceIdx]["x"],
-                                                                                y_pos=[sourceIdx]["y"],
-                                                                                radius_pos=fgSources[sourceIdx]["radiusFlux"],
-                                                                                inner_rad=rIbg,
-                                                                                outer_rad=rObg,
-                                                                                void_mask=fgSources[sourceIdx]["contaminantMask"])
+        fg_model = (fg_sources[sourceIdx]["sourceDataNoBg"] / fg_sources[sourceIdx]["flux"])
+        fg_model[(fg_sources[sourceIdx]["sourceMask"] == 0)] = 0.
+        print("         The min, max values for fg model are: {:03.4f}, {:03.4f}".format(np.min(fg_model),
+                                                                                         np.max(fg_model)))
+        # extract spectrum of the source from the datacube
+        fg_source_extent = np.max([fg_sources[sourceIdx]["a"], fg_sources[sourceIdx]["b"]])
+        bg_inner_rad = 1.1 * mask_size * (fg_source_extent + fg_sources[sourceIdx]["radiusFlux"])
+        bg_outer_rad = bg_inner_rad + (5. * fg_sources[sourceIdx]["radiusFlux"])
+        if bg_source:
+            fg_flux_source, fg_err_flux_source, \
+            fg_bg_flux_source = manip.quickSpectrum(datacopy, statcopy=statcopy,
+                                                    x_pos=fg_sources["x"][sourceIdx],
+                                                    y_pos=fg_sources["y"][sourceIdx],
+                                                    radius_pos=fg_sources["radiusFlux"][sourceIdx],
+                                                    inner_rad=bg_inner_rad,
+                                                    outer_rad=bg_outer_rad,
+                                                    void_mask=fg_sources["contaminantMask"][sourceIdx])
         else:
-            fgFluxSource, fgErrFluxSource = manip.quickSpectrumNoBg(dataCube, statcopy=statCube,
-                                                                    x_pos=fgSources[sourceIdx]["x"],
-                                                                    y_pos=fgSources[sourceIdx]["y"],
-                                                                    radius_pos=fgSources[sourceIdx]["radiusFlux"])
-        keepSource=True
-        if maskXYRad is not None:
-            distFromMasked = manip.distFromPixel(0., maskY, maskX, 0., np.array(fgSources[sourceIdx]["y"]), np.array(fgSources[sourceIdx]["x"]))
-            if distFromMasked < maskXYRad:
-                keepSource=False
+            fg_flux_source, fg_err_flux_source = manip.quickSpectrumNoBg(datacopy, statcopy=statcopy,
+                                                                         x_pos=fg_sources["x"][sourceIdx],
+                                                                         y_pos=fg_sources["y"][sourceIdx],
+                                                                         radius_pos=fg_sources[sourceIdx]["radiusFlux"])
+        keep_source = True
+        if mask_xy_rad is not None:
+            dist_from_masked = manip.distFromPixel(0., mask_y, mask_x, 0., np.array(fg_sources[sourceIdx]["y"]),
+                                                   np.array(fg_sources[sourceIdx]["x"]))
+            if dist_from_masked < mask_xy_rad:
+                keep_source = False
                 print("cleanFg: Source not removed")
-                print("         it is located {}<{} pixel away from the XYmask".format(distFromMasked, maskXYRad))
+                print("         it is located {}<{} pixel away from the XYmask".format(dist_from_masked, mask_xy_rad))
 
-        if keepSource:
-            for channel in range(0, zMax):
+        if keep_source:
+            for channel in range(0, z_max):
                 # selecting only where the source is significantly detected
-                if fgFluxSource[channel] > 0.5 * fgErrFluxSource[channel]:
-                    if bgSource:
-                        dataCubeClean[channel, :, :] -= ((fgModel * fgFluxSource[channel]) + (fgSources[sourceIdx]["sourceMask"]*fgBgFluxSource[channel]))
-                        dataCubeModel[channel, :, :] += ((fgModel * fgFluxSource[channel]) + (fgSources[sourceIdx]["sourceMask"]*fgBgFluxSource[channel]))
+                if fg_flux_source[channel] > 0.5 * fg_err_flux_source[channel]:
+                    if bg_source:
+                        datacopy_clean[channel, :, :] -= ((fg_model * fg_flux_source[channel]) + (
+                                fg_sources[sourceIdx]["sourceMask"] * fg_bg_flux_source[channel]))
+                        datacopy_model[channel, :, :] += ((fg_model * fg_flux_source[channel]) + (
+                                fg_sources[sourceIdx]["sourceMask"] * fg_bg_flux_source[channel]))
                     else:
-                        dataCubeClean[channel, :, :] -= (fgModel * fgFluxSource[channel])
-                        dataCubeModel[channel, :, :] += (fgModel * fgFluxSource[channel])
+                        datacopy_clean[channel, :, :] -= (fg_model * fg_flux_source[channel])
+                        datacopy_model[channel, :, :] += (fg_model * fg_flux_source[channel])
 
         if deepDebug:
             print("cleanFg: Spectrum of the source {}".format(sourceIdx))
@@ -913,90 +926,96 @@ def cleanFg(datacontainer,
             plt.figure(1, figsize=(18, 6))
             gs = gridspec.GridSpec(1, 3)
 
-            axImag = plt.subplot2grid((1, 3), (0, 0), colspan=1)
-            axSpec = plt.subplot2grid((1, 3), (0, 1), colspan=2)
+            ax_imag = plt.subplot2grid((1, 3), (0, 0), colspan=1)
+            ax_spec = plt.subplot2grid((1, 3), (0, 1), colspan=2)
 
-            fgModelTempXMin, fgModelTempXMax = np.int(fgSources[sourceIdx]["x"]-rIbg), np.int(fgSources[sourceIdx]["x"]+rIbg)
-            fgModelTempYMin, fgModelTempYMax = np.int(fgSources[sourceIdx]["y"]-rIbg), np.int(fgSources[sourceIdx]["y"]+rIbg)
-            fgModelTemp = np.copy(fgModel[fgModelTempYMin:fgModelTempYMax, fgModelTempXMin:fgModelTempXMax])
-            axImag.imshow(fgModelTemp,
-                          cmap="Greys", origin="lower",
-                          vmin=0.,
-                          vmax=1. / (np.pi * radiusNorm * radiusNorm))
-            axImag.set_xlabel(r"X [Pixels]", size=30)
-            axImag.set_ylabel(r"Y [Pixels]", size=30)
+            temp_fg_model_xmin, temp_fg_model_xmax = int(fg_sources[sourceIdx]["x"] - bg_inner_rad), int(
+                fg_sources[sourceIdx]["x"] + bg_inner_rad)
+            temp_fg_model_ymin, temp_fg_model_ymax = int(fg_sources[sourceIdx]["y"] - bg_inner_rad), int(
+                fg_sources[sourceIdx]["y"] + bg_inner_rad)
+            temp_fg_model = np.copy(
+                fg_model[temp_fg_model_ymin:temp_fg_model_ymax, temp_fg_model_xmin:temp_fg_model_xmax])
+            ax_imag.imshow(temp_fg_model,
+                           cmap="Greys", origin="lower",
+                           vmin=0.,
+                           vmax=1. / (np.pi * rad_norm * rad_norm))
+            ax_imag.set_xlabel(r"X [Pixels]", size=30)
+            ax_imag.set_ylabel(r"Y [Pixels]", size=30)
 
-            axSpec.plot(fgFluxSource, color='black', zorder=3, label='Flux')
-            axSpec.plot(fgErrFluxSource, color='gray', alpha=0.5, zorder=2, label='Error')
-            if bgSource:
-                axSpec.plot(fgBgFluxSource * (np.pi * radiusNorm * radiusNorm), color='red', alpha=0.5, zorder=1, label='b/g')
-            axSpec.legend()
-            axSpec.set_xlabel(r"Channel", size=30)
-            axSpec.set_ylabel(r"Flux", size=30)
+            ax_spec.plot(fg_flux_source, color='black', zorder=3, label='Flux')
+            ax_spec.plot(fg_err_flux_source, color='gray', alpha=0.5, zorder=2, label='Error')
+            if bg_source:
+                ax_spec.plot(fg_bg_flux_source * (np.pi * rad_norm * rad_norm), color='red', alpha=0.5, zorder=1,
+                             label='b/g')
+            ax_spec.legend()
+            ax_spec.set_xlabel(r"Channel", size=30)
+            ax_spec.set_ylabel(r"Flux", size=30)
 
             plt.tight_layout()
             plt.show()
             plt.close()
-            del fgModelTemp
+            del temp_fg_model
 
     print("cleanFg: Source cleaning performed")
 
     if debug:
         print("cleanFg: Saving degub image on {}_fgSourcesCleaned.pdf".format(output))
-        fgDataClean = manip.collapse_cube(dataCubeClean, maskZ=maskZ,
-                                          min_lambda=minChannel, max_lambda=maxChannel)
-        fgStatClean = manip.collapse_cube(statCube, maskZ=maskZ,
-                                          min_lambda=minChannel, max_lambda=maxChannel)
+        fg_data_clean = manip.collapse_cube(datacopy_clean, mask_z=mask_z,
+                                            min_lambda=min_lambda, max_lambda=max_lambda)
         plt.figure(1, figsize=(12, 6))
         gs = gridspec.GridSpec(1, 2)
 
-        axImage = plt.subplot2grid((1, 2), (0, 0), colspan=1)
-        axClean = plt.subplot2grid((1, 2), (0, 1), colspan=1)
+        ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
+        ax_clean = plt.subplot2grid((1, 2), (0, 1), colspan=1)
 
         # Plotting field image
-        axImage.imshow(fgData,
-                       cmap="Greys", origin="lower",
-                       vmin=fgBackgroundFlux-3.*fgBackgroundSigma,
-                       vmax=fgBackgroundFlux+3.*fgBackgroundSigma)
-        axImage.set_xlabel(r"X [Pixels]", size=30)
-        axImage.set_ylabel(r"Y [Pixels]", size=30)
-        axImage.set_title(r"Collapsed image")
+        ax_image.imshow(fg_data,
+                        cmap="Greys", origin="lower",
+                        vmin=fg_bg_flux - 3. * fg_bg_sigma,
+                        vmax=fg_bg_flux + 3. * fg_bg_sigma)
+        ax_image.set_xlabel(r"X [Pixels]", size=30)
+        ax_image.set_ylabel(r"Y [Pixels]", size=30)
+        ax_image.set_title(r"Collapsed image")
 
-        for sourceIdx in range(0,len(fgSources)):
-            fgSourcesArtist = Ellipse(xy=(fgSources[sourceIdx]["x"], fgSources[sourceIdx]["y"]),
-                                      width=sizeSourceMask*fgSources[sourceIdx]["a"],
-                                      height=sizeSourceMask*fgSources[sourceIdx]["b"],
-                                      angle=fgSources[sourceIdx]["theta"])
-            fgSourcesArtist.set_facecolor("none")
-            fgSourcesArtist.set_edgecolor("red")
-            fgSourcesArtist.set_alpha(0.8)
-            axImage.add_artist(fgSourcesArtist)
+        for sourceIdx in range(0, len(fg_sources)):
+            fg_source_artist = Ellipse(xy=(fg_sources[sourceIdx]["x"], fg_sources[sourceIdx]["y"]),
+                                       width=mask_size * fg_sources[sourceIdx]["a"],
+                                       height=mask_size * fg_sources[sourceIdx]["b"],
+                                       angle=fg_sources[sourceIdx]["theta"])
+            fg_source_artist.set_facecolor("none")
+            fg_source_artist.set_edgecolor("red")
+            fg_source_artist.set_alpha(0.8)
+            ax_image.add_artist(fg_source_artist)
 
         # Plotting cleaned image
-        axClean.imshow(fgDataClean,
-                       cmap="Greys", origin="lower",
-                       vmin=fgBackgroundFlux-3.*fgBackgroundSigma,
-                       vmax=fgBackgroundFlux+3.*fgBackgroundSigma)
-        axClean.set_xlabel(r"X [Pixels]", size=30)
-        axClean.set_ylabel(r"Y [Pixels]", size=30)
-        axClean.set_title(r"Cleaned image")
+        ax_clean.imshow(fg_data_clean,
+                        cmap="Greys", origin="lower",
+                        vmin=fg_bg_flux - 3. * fg_bg_sigma,
+                        vmax=fg_bg_flux + 3. * fg_bg_sigma)
+        ax_clean.set_xlabel(r"X [Pixels]", size=30)
+        ax_clean.set_ylabel(r"Y [Pixels]", size=30)
+        ax_clean.set_title(r"Cleaned image")
 
         plt.tight_layout()
-        plt.savefig(output+"_fgSourcesCleaned.pdf", dpi=400.,
+        plt.savefig(output + "_fgSourcesCleaned.pdf", dpi=400.,
                     format="pdf", bbox_inches="tight")
         if showDebug:
             plt.show()
         plt.close()
 
     print("cleanFg: Saving source list on {}_fgSources.txt".format(output))
-    f = open(output+"_fgSources.txt", 'w')
+    f = open(output + "_fgSources.txt", 'w')
     f.write("Idx fgXPix fgYPix fgAPix fgBPix fgTheta\n")
-    for sourceIdx in range(0,len(fgSources)):
-        f.write("{:.0f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(sourceIdx, fgSources[sourceIdx]["x"], fgSources[sourceIdx]["y"], fgSources[sourceIdx]["a"], fgSources[sourceIdx]["b"], fgSources[sourceIdx]["theta"]))
+    for sourceIdx in range(0, len(fg_sources)):
+        f.write("{:.0f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(sourceIdx, fg_sources[sourceIdx]["x"],
+                                                                     fg_sources[sourceIdx]["y"],
+                                                                     fg_sources[sourceIdx]["a"],
+                                                                     fg_sources[sourceIdx]["b"],
+                                                                     fg_sources[sourceIdx]["theta"]))
     f.close()
 
     gc.collect()
-    return dataCubeClean, dataCubeModel, fgSources
+    return datacopy_clean, datacopy_model, fg_sources
 
 
 def makePsf(datacontainer,
@@ -1008,13 +1027,13 @@ def makePsf(datacontainer,
             radius_pos=2.,
             inner_rad=10.,
             outer_rad=15.,
-            rPsf=50.,
+            rad_psf=50.,
             cType="sum",
             norm=True,
             debug=False,
             showDebug=False):
-    """Given a Cube, the macro collapses it along the z-axis between minChannel and
-    maxChannel. If maskZ is given, channels masked as 1 (or True) are removed.
+    """Given a Cube, the macro collapses it along the z-axis between min_lambda and
+    max_lambda. If mask_z is given, channels masked as 1 (or True) are removed.
     if cType is set to 'average', the macro uses to STAT information to perform a
     weighted mean along the velocity axis. In other words, each spaxel of the resulting
     image will be the weighted mean spectrum of that spaxels along the wavelengths.
@@ -1040,7 +1059,7 @@ def makePsf(datacontainer,
         inner radius of the background region in pixel (default is 10.)
     outer_rad : float
         outer radius of the background region in pixel (default is 15.)
-    rPsf : float
+    rad_psf : float
         radius of the PSF image to be created. Outside
         these pixels values are set to zero (default is 50.)
     cType : str
@@ -1060,7 +1079,7 @@ def makePsf(datacontainer,
     print("makePsf: Creating PSF model")
     if cType == 'sum':
         print("makePsf: Summing channels")
-        psf_data, psf_stat = manip.collapse_container(datacontainer, min_lambda, max_lambda)
+        psf_data, psf_stat = manip.collapse_container(datacontainer, min_lambda, max_lambda, maskZ=maskZ)
     else:
         print("makePsf: Average combining channels")
         psf_data, psf_stat = manip.collapse_mean_container(datacontainer, min_lambda, max_lambda)
@@ -1083,7 +1102,7 @@ def makePsf(datacontainer,
 
     print("makePsf: Creating circular mask around the position {}, {}".format(x_pos, y_pos))
     psf_mask = manip.location(psf_data, x_position=x_pos, y_position=y_pos,
-                              semi_maj=rPsf, semi_min=rPsf)
+                              semi_maj=rad_psf, semi_min=rad_psf)
     psf_data[(psf_mask == 0)] = 0.
     psf_stat[(psf_mask == 0)] = 0.
 
@@ -1105,8 +1124,8 @@ def makePsf(datacontainer,
                         vmax=0.3 * np.nanmax(psf_data))
         ax_image.set_xlabel(r"X [Pixels]", size=30)
         ax_image.set_ylabel(r"Y [Pixels]", size=30)
-        ax_image.set_xlim(left=x_pos - rPsf, right=x_pos + rPsf)
-        ax_image.set_ylim(bottom=y_pos - rPsf, top=y_pos + rPsf)
+        ax_image.set_xlim(left=x_pos - rad_psf, right=x_pos + rad_psf)
+        ax_image.set_ylim(bottom=y_pos - rad_psf, top=y_pos + rad_psf)
         ax_image.set_title(r"PSF model")
 
         inner_artist = Ellipse(xy=(x_pos, y_pos),
@@ -1136,17 +1155,17 @@ def makePsf(datacontainer,
         ax_stat.imshow(psf_stat,
                        cmap="Greys", origin="lower",
                        vmin=np.nanmin(psf_stat[y_plot_min:y_plot_max,
-                                               x_plot_min:x_plot_max]),
+                                      x_plot_min:x_plot_max]),
                        vmax=0.5 * np.nanmax(psf_stat[y_plot_min:y_plot_max,
-                                                     x_plot_min:x_plot_max]))
+                                            x_plot_min:x_plot_max]))
         '''
                          vmin=np.nanmin(psf_stat),
                          vmax=(0.5 * np.nanmax(psf_stat)))
         '''
         ax_stat.set_xlabel(r"X [Pixels]", size=30)
         ax_stat.set_ylabel(r"Y [Pixels]", size=30)
-        ax_stat.set_xlim(left=x_pos - rPsf, right=x_pos + rPsf)
-        ax_stat.set_ylim(bottom=y_pos - rPsf, top=y_pos + rPsf)
+        ax_stat.set_xlim(left=x_pos - rad_psf, right=x_pos + rad_psf)
+        ax_stat.set_ylim(bottom=y_pos - rad_psf, top=y_pos + rad_psf)
         ax_stat.set_title(r"PSF Variance")
 
         plt.tight_layout()
@@ -1170,7 +1189,7 @@ def clean_psf(datacontainer,
               show_debug=False):
     """Given a cube and a PSF model, the macro subtracts the PSF contribution
     along the wavelength axis. It assumes that the PSF model is normalized to
-    one within rPsf and that the PSF model is centered in the same location
+    one within rad_psf and that the PSF model is centered in the same location
     of the object you want to remove. This will be improved in the future.
 
     Parameters
@@ -1207,7 +1226,7 @@ def clean_psf(datacontainer,
 
     print("cleanPsf: The min, max values for PSF model are: {:03.4f}, {:03.4f}".format(np.min(psf_model),
                                                                                        np.max(psf_model)))
-    # extract spectrum of the source from the dataCube
+    # extract spectrum of the source from the datacube
     if bg_psf:
         flux_source, err_flux_source, bg_flux_source = manip.quickSpectrum(datacontainer=datacopy,
                                                                            statcopy=statcopy,
@@ -1243,16 +1262,17 @@ def clean_psf(datacontainer,
         model_temp_y_min, model_temp_y_max = int(y_pos - inner_rad), int(y_pos + inner_rad)
         model_temp = np.copy(psf_model[model_temp_y_min:model_temp_y_max, model_temp_x_min:model_temp_x_max])
         ax_imag.imshow(model_temp,
-                      cmap="Greys", origin="lower",
-                      vmin=0.,
-                      vmax=1. / (np.pi * radius_pos * radius_pos))
+                       cmap="Greys", origin="lower",
+                       vmin=0.,
+                       vmax=1. / (np.pi * radius_pos * radius_pos))
         ax_imag.set_xlabel(r"X [Pixels]", size=30)
         ax_imag.set_ylabel(r"Y [Pixels]", size=30)
 
         ax_spec.plot(flux_source, color='black', zorder=3, label='Flux')
         ax_spec.plot(err_flux_source, color='gray', alpha=0.5, zorder=2, label='Error')
         if bg_psf:
-            ax_spec.plot(bg_flux_source * (np.pi * radius_pos * radius_pos), color='red', alpha=0.5, zorder=1, label='b/g')
+            ax_spec.plot(bg_flux_source * (np.pi * radius_pos * radius_pos), color='red', alpha=0.5, zorder=1,
+                         label='b/g')
         ax_spec.legend()
         ax_spec.set_xlabel(r"Channel", size=30)
         ax_spec.set_ylabel(r"Flux", size=30)

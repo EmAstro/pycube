@@ -52,9 +52,9 @@ class IfuCube:
     def instrument(self, instrument):
         self._instrument = instrument
 
-    def from_fits_file(self):
+    def initialize_file(self):
         """
-        Opens .FITS file and separates information by primary, data, and stat.
+        Opens file and separates information by primary, data, and stat.
 
         Assigns
         -------
@@ -64,9 +64,6 @@ class IfuCube:
         Stat (variance) row of file
         """
 
-        if self.instrument is None:
-            # either set a default assignments or have code request instrument designation
-            pass
         self.hdul = fits.open(self.image, memmap=True)
         self.primary = self.hdul[self.instrument.primary_extension]
         self.data = self.hdul[self.instrument.data_extension]
@@ -136,8 +133,7 @@ class IfuCube:
         cube_bg, mask_bg = psf.background_cube(self, sig_source_detect=sig_source_detection,
                                                min_source_area=min_source_area,
                                                source_mask_size=source_mask_size,
-                                               source_size_max=max_source_size,
-                                               source_ellipse_max=max_source_ell, edges=edges)
+                                               edges=edges)
 
         self.source_mask = fits.ImageHDU(data=mask_bg, name='MASK')
         self.source_background = fits.ImageHDU(data=cube_bg, name='BACKGROUND')
@@ -171,7 +167,7 @@ class IfuCube:
         if mode == 'median':
             self.background_mode = background.median_background(self.data.data)
         elif mode == 'sextractor':
-            self.background_mode = background.sextractor_background(self.data.data, self.stat.data, )
+            self.background_mode = background.sextractor_background(self.data.data, self.stat.data)
         else:
             raise ValueError
             msgs.warning('Possible values are:\n {}'.format(background.BACKGROUND_MODES))

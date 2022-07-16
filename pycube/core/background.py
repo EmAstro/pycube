@@ -19,7 +19,7 @@ def median_background(datacontainer, sigma):
     Returns
     -------
     float
-        Median value of datacontainer's background ignoring NaNs.
+        Median value of datacube's background ignoring NaNs.
     """
     return np.nanmedian(datacontainer, 0)
 
