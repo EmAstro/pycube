@@ -12,11 +12,9 @@ from scipy import ndimage
 from scipy.optimize import curve_fit
 
 from astropy.convolution import convolve
-from astropy.convolution import Gaussian2DKernel
 
 from pycube.core import manip
 
-from IPython import embed
 
 cSpeed = 299792.458  # in km/s
 
@@ -28,23 +26,23 @@ def smoothChiCube(datacontainer,
                   a_smooth=1.,
                   v_smooth=1.,
                   truncate=5.):
-    """Given a (PSF subtracted) cube, the macro smooth both
-    the dataCube and the statCube with a 3D gaussian Kernel.
+    """Given a (PSF subtracted) IFUcube, the macro smooth both
+    the datacube and the statcube with a 3D gaussian Kernel.
     The same sigma is considered in both spatial axes
     (a_smooth), while a different one can be set for the
-    spectral axis (vSmooth).
-    Note that the 'STAT' cube is convolved as convol^2[statCube].
+    spectral axis (v_smooth).
+    Note that the 'stat' cube is convolved as convol^2[statcube].
     The smoothChiCube is than created as:
-                   convol[dataCube]
+                   convol[datacube]
     sChiCube = ------------------------
-               sqrt(convol**2[statCube])
+               sqrt(convol**2[statcube])
     The chi_cube is simply:
-                       dataCube
+                       datacube
     chi_cube = -------------------------
-                    sqrt(statCube)
+                    sqrt(statcube)
     Given that scipy has hard time to deal with NaNs, NaNs
     values in the dataCube are converted to zeroes, while the
-    NaNs in the statCube to nanmax(statCube).
+    NaNs in the statCube to nanmax(statcube).
 
     Parameters
     ----------
@@ -116,15 +114,15 @@ def maskHalo(chi_cube,
              output='Object',
              debug=False,
              showDebug=False):
-    """Given a PSF subtracted X cube (either smoothed or not) the
+    """Given a PSF subtracted data cube (either smoothed or not) this
     macro, after masking some regions, performs a friends of friends
     search for connected pixels above a certain threshold in S/N.
     The first step is to identify the most significant voxel in
-    proximity of the quasar position (given as x_pos, y_pos, zPix).
+    proximity of the quasar position (given as x_pos, y_pos, z_pos).
     The code assumes that the position of the extended halo is known
     and so started to create the mask of connected pixels from this
     point and from the most significant voxel within a spherical
-    radius of 3.*rad_bad_pix from (x_pos, y_pos, zPix).
+    radius of 3.*rad_bad_pix from (x_pos, y_pos, z_pos).
     From there the macro searches for neighbor pixels that are above
     the threshold and creates a mask for the extended emission.
 
@@ -180,12 +178,12 @@ def maskHalo(chi_cube,
     """
 
     # Creating a mask
-    print("mask_halo: removing inner region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
+    print("maskHalo: removing inner region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
     print("          with radius {} pixels".format(rad_bad_pix))
     bad_mask = manip.location(chi_cube[0, :, :], x_position=x_pos, y_position=y_pos,
                               semi_maj=rad_bad_pix, semi_min=rad_bad_pix)
 
-    print("mask_halo: removing outer region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
+    print("maskHalo: removing outer region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
     print("          with radius {} pixels".format(rad_max))
     outer_bad_mask = manip.location(chi_cube[0, :, :], x_position=x_pos, y_position=y_pos,
                                     semi_maj=rad_max, semi_min=rad_max)
@@ -193,7 +191,7 @@ def maskHalo(chi_cube,
     del outer_bad_mask
 
     if bad_pixel_mask is not None:
-        print("mask_halo: removing {} bad voxels".format(np.sum(bad_pixel_mask)))
+        print("maskHalo: removing {} bad voxels".format(np.sum(bad_pixel_mask)))
         bad_mask[(bad_pixel_mask > 0)] = 1
 
     # Filling up mask
@@ -205,7 +203,7 @@ def maskHalo(chi_cube,
         chicopy[channel, :, :][(bad_mask == 1)] = np.nan
         chi_cube_mask[channel, :, :][(bad_mask == 1)] = 1
 
-    print("mask_halo: defining threshold level")
+    print("maskHalo: defining threshold level")
 
     # In absence of systematics, the distribution of the
     # X values in a single slice should be a gaussian
@@ -219,28 +217,28 @@ def maskHalo(chi_cube,
 
     chi_cube_ave, chi_cube_med, chi_cube_sig = manip.statFullCube(chicopy, n_sigma_extreme=n_sigma_extreme)
     chi_cube_ave_z, chi_cube_med_z, chi_cube_sig_z = manip.statFullCubeZ(chicopy, n_sigma_extreme=n_sigma_extreme)
-    print("mask_halo: the median value of the voxels is: {:+0.4f}".format(chi_cube_med))
+    print("maskHalo: the median value of the voxels is: {:+0.4f}".format(chi_cube_med))
     print("          and the sigma is: {:+0.4f}".format(chi_cube_sig))
     if threshold_type == 'relative':
-        print("mask_halo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
+        print("maskHalo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
                                                                                                       chi_cube_sig,
                                                                                                       threshold *
                                                                                                       chi_cube_sig))
         threshold_halo = threshold * chi_cube_sig_z
     elif threshold_type == 'absolute':
-        print("mask_halo: absolute threshold value set to {:0.2f}".format(threshold))
+        print("maskHalo: absolute threshold value set to {:0.2f}".format(threshold))
         threshold_halo = threshold * np.ones_like(chi_cube_sig_z)
     else:
-        print("mask_halo: WARNING!")
+        print("maskHalo: WARNING!")
         print("          no threshold_type set, assumed relative")
-        print("mask_halo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
+        print("maskHalo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
                                                                                                       chi_cube_sig,
                                                                                                       threshold *
                                                                                                       chi_cube_sig))
         threshold_halo = threshold * chi_cube_sig_z
 
     if debug:
-        print("mask_halo: Saving debug image on {}_voxelDistribution.pdf".format(output))
+        print("maskHalo: Saving debug image on {}_voxelDistribution.pdf".format(output))
         print("          in principle the distribution should be gaussian")
         print("          showing only channel {}".format(np.int(z_max / 2.)))
 
@@ -304,7 +302,7 @@ def maskHalo(chi_cube,
         del gauss_covar
 
     # Searching for the Max value from which to start to look for connections
-    print("mask_halo: searching for extended emission")
+    print("maskHalo: searching for extended emission")
     print("          starting from from (x,y,z)=({:0.2f},{:0.3f},{:0.0f})".format(float(x_pos), float(y_pos),
                                                                                   float(z_pos)))
     # Check small cube
@@ -322,14 +320,14 @@ def maskHalo(chi_cube,
         y_max_chi = int(y_max_chi[np.where(dist_pix == np.min(dist_pix))])
         x_max_chi = int(x_max_chi[np.where(dist_pix == np.min(dist_pix))])
 
-        print("mask_halo: the maximum S/N detected is {:0.3f} ".format(max_s_chicopy))
+        print("maskHalo: the maximum S/N detected is {:0.3f} ".format(max_s_chicopy))
         print("          at the location (x,y,z)=({},{},{})".format(x_max_chi, y_max_chi, z_max_chi))
     else:
         max_s_chicopy = threshold
         z_max_chi, y_max_chi, x_max_chi = z_pos, y_pos, x_pos
     del small_chicopy
 
-    print("mask_halo: starting to fill the halo mask")
+    print("maskHalo: starting to fill the halo mask")
     # this mask is equal to 1 if the pixel is considered part of the halo
     # equal to 0 if it is not
     mask_halo = np.zeros_like(chi_cube)
@@ -375,7 +373,7 @@ def maskHalo(chi_cube,
     # Removing masked data
 
     if debug:
-        print("mask_halo: Creating debug image")
+        print("maskHalo: Creating debug image")
         print("          Plotting Channel {} where the most significant voxel is.".format(z_max_chi))
         print("          The location of this voxel is marked with a red circle")
         print("          The position of the quasars is in blue")
@@ -443,7 +441,7 @@ def maskHalo(chi_cube,
         ax_mask.set_ylim(bottom=y_pos - rad_max, top=y_pos + rad_max)
         ax_mask.set_title(r"Excluded Pixels Mask")
 
-        print("mask_halo: debug image saved in {}_maskHaloStartingVoxel.pdf".format(output))
+        print("maskHalo: debug image saved in {}_maskHaloStartingVoxel.pdf".format(output))
         plt.tight_layout()
         plt.savefig(output + "_maskHaloStartingVoxel.pdf", dpi=400.,
                     format="pdf", bbox_inches="tight")
@@ -464,7 +462,7 @@ def maskHalo(chi_cube,
 
 
 def spectral_mask_halo(mask_halo):
-    """Given the halo mask, the macro returns
+    """Given the halo mask, this macro returns
     a 2D mask in x and y and the min and max
     channel where the halo is detected in the z-axis.
 
@@ -483,9 +481,9 @@ def spectral_mask_halo(mask_halo):
         the z-axis
     """
 
-    print("spectralMaskHalo: collapsing halo mask")
+    print("spectral_mask_halo: collapsing halo mask")
     if np.nansum(mask_halo) < 2:
-        print("spectralMaskHalo: not enough voxels in the mask")
+        print("spectral_mask_halo: not enough voxels in the mask")
         z_max, y_max, x_max = np.shape(mask_halo)
         return np.zeros_like(mask_halo[0, :, :], int), 0, z_max
 
@@ -536,10 +534,10 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
         cleaned 3D mask of the halo location.
     """
 
-    print("cleanMaskHalo: cleaning halo mask")
+    print("clean_mask_halo: cleaning halo mask")
 
     if np.nansum(mask_halo) < np.int(min_vox / 2.):
-        print("cleanMaskHalo: not enough voxels in the mask")
+        print("clean_mask_halo: not enough voxels in the mask")
         return np.zeros_like(mask_halo, int)
 
     clean_mask_halo = np.copy(mask_halo)
@@ -555,7 +553,7 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
     if max_channel is not None:
         clean_mask_halo[max_channel:-1, :, :] = 0
 
-    print("cleanMaskHalo: Removed {} voxels from the mask".format(np.sum(mask_halo) - np.sum(clean_mask_halo)))
+    print("clean_mask_halo: Removed {} voxels from the mask".format(np.sum(mask_halo) - np.sum(clean_mask_halo)))
 
     if debug:
         z_max, y_max, x_max = np.shape(mask_halo)

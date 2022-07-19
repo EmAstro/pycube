@@ -1,11 +1,12 @@
 # class set up for MUSE datacubes
 """Import modules useful for analyzing MUSE data and handling FITS files"""
 import numpy as np
+
 from pycube.core import background
 from pycube import psf
-from pycube import msgs
+from pycube import msgs as msgs
+
 from astropy.io import fits
-from IPython import embed
 
 
 class IfuCube:
@@ -75,6 +76,7 @@ class IfuCube:
         self.data = self.hdul[self.instrument.data_extension]
         self.stat = self.hdul[self.instrument.sigma_extension]
 
+    # functions used for pulling IFUcube information within module functions
     def get_primary(self):
         return self.primary.header
 
@@ -140,27 +142,6 @@ class IfuCube:
         self.hdul.append(self.source_mask)
         self.hdul.append(self.source_background)
 
-    """
-    def save_psf(self, x_pos, y_pos,
-                 radius_pos, inner_rad,
-                 outer_rad, cType = 'sum', 
-                 min_lambda, max_lambda,)
-    
-    
-    psf_data, psf_stat = psf.makePsf(self.data.data, self.stat.data,
-                                     x_pos=x_pos,y_pos=y_pos,
-                                     inner_rad=inner_rad,outer_rad=outer_rad,
-                                     min_lambda=min_lambda, max_lambda=max_lambda)
-    
-    dataCubeClean, dataCubeModel = psf.cleanPsf(self.data.data,self.stat.data,
-                                            psfModel=psf_data,
-                                            x_pos=x_pos, y_pos=y_pos,
-                                            radius_pos=radius_pos, inner_rad=inner_rad,
-                                            outer_rad=outer_rad) 
-    
-    
-    
-    """
 
     def background(self, mode='median'):
         if mode == 'median':
@@ -170,4 +151,3 @@ class IfuCube:
         else:
             raise ValueError
             msgs.warning('Possible values are:\n {}'.format(background.BACKGROUND_MODES))
-        embed()
