@@ -8,6 +8,8 @@ from scipy.optimize import curve_fit
 from pycube.core import manip
 from pycube.core import background
 
+from astropy.stats import sigma_clip
+
 import sep
 import gc
 
@@ -84,7 +86,7 @@ def find_sources(datacontainer, statcube=None,
                               err=var_background,
                               minarea=min_area,
                               filter_type='matched',
-                              #gain=gain,
+                              # gain=gain,
                               clean=True,
                               deblend_cont=deblend_val,
                               filter_kernel=None)
@@ -197,8 +199,8 @@ def statBg(datacontainer,
 
     Parameters
     ----------
-    datacontainer : file object
-        currently specific to .fits file objects
+    datacontainer : IFUcube object
+        data initialized in cubeClass.py
     min_lambda : int
         min channel to create the image where to detect sources
     max_lambda : int
@@ -425,7 +427,9 @@ def subtractBg(datacontainer,
         bg_mask_3D = np.broadcast_to((bg_mask_2d == 1), statcopy_nan.shape)
         statcopy_nan[(bg_mask_3D == 1)] = np.nan
         # Calculating average variance per channel
-        averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))
+        #averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))  # TODO
+
+        averageStatBg = np.nanmean(sigma_clip(statcopy_nan,maxiters=10, sigma=2.3, axis=(1,2)),axis=(1, 2))
         del statcopy_nan
         del bg_mask_3D
         # Rescaling cube variance
@@ -1021,6 +1025,7 @@ def cleanFg(datacontainer,
 def makePsf(datacontainer,
             x_pos,
             y_pos,
+            statcube=None,
             min_lambda=None,
             max_lambda=None,
             maskZ=None,
@@ -1041,12 +1046,14 @@ def makePsf(datacontainer,
 
     Parameters
     ----------
-    datacontainer : IFUcube Object
-        data read in from cubeClass.py
+    datacontainer : IFUcube Object, np.array
+        data initiated in cubeClass.py, or 3D data array
     x_pos : float
         x-location of the source in pixel
     y_pos : float
         y-location of the source in pixel
+    statcube : np.array, optional
+        variance data array, optional if read in IFUcube for datacontainer
     min_lambda : int, optional
         min channel to create collapsed image (default is None)
     max_lambda : int, optional
@@ -1075,14 +1082,24 @@ def makePsf(datacontainer,
     psfData, psfStat : np.array
         PSF data and variance images
     """
-
     print("makePsf: Creating PSF model")
-    if cType == 'sum':
-        print("makePsf: Summing channels")
-        psf_data, psf_stat = manip.collapse_container(datacontainer, min_lambda, max_lambda, maskZ=maskZ)
+
+    if statcube is None:
+        if cType == 'sum':
+            print("makePsf: Summing channels")
+            psf_data, psf_stat = manip.collapse_cube(datacontainer, min_lambda, max_lambda, mask_z=maskZ)
+        else:
+            print("makePsf: Average combining channels")
+            psf_data, psf_stat = manip.collapse_mean_container(datacontainer, min_lambda, max_lambda)
     else:
-        print("makePsf: Average combining channels")
-        psf_data, psf_stat = manip.collapse_mean_container(datacontainer, min_lambda, max_lambda)
+        datacopy = np.copy(datacontainer)
+        if cType == 'sum':
+            print("makePsf: Summing channels")
+            psf_data = manip.collapse_cube(datacopy, min_lambda, max_lambda, mask_z=maskZ)
+            psf_stat = manip.collapse_cube(statcube, min_lambda, max_lambda, mask_z=maskZ)
+        else:
+            print("makePsf: Average combining channels")
+            psf_data, psf_stat = manip.collapse_mean_cube(datacontainer, statcube, min_lambda, max_lambda)
 
     psf_flux, psf_err_flux, psf_ave_flux = manip.quickApPhotmetry(psf_data, psf_stat, x_pos=x_pos, y_pos=y_pos,
                                                                   radius_pos=radius_pos, inner_rad=inner_rad,

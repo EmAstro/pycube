@@ -9,7 +9,9 @@ from IPython import embed
 
 
 class IfuCube:
-    def __init__(self, image, instrument=None, object=None, primary=None, data=None, stat=None, hdul=None, background_mode=None):
+    def __init__(self, image, instrument=None, object=None,
+                 primary=None, data=None, stat=None, hdul=None,
+                 background_mode=None):
         """"
         Inputs:
             image: raw FITS file
@@ -58,10 +60,14 @@ class IfuCube:
 
         Assigns
         -------
-        hdul to open data file
-        Primary row of file
-        Data row of file
-        Stat (variance) row of file
+        hdul :
+            full data table
+        primary :
+            primary row of hdul
+        data :
+            data row of hdul
+        stat :
+            stat (variance) row of hdul
         """
 
         self.hdul = fits.open(self.image, memmap=True)
@@ -96,8 +102,7 @@ class IfuCube:
 
     def get_background(self,
                        sig_source_detection=5.0, min_source_area=16.,
-                       source_mask_size=6., max_source_size=50.,
-                       max_source_ell=0.9, edges=60):
+                       source_mask_size=6., edges=60):
         """Uses statBg from psf.py to generate the source mask and the background
         image with sources removed and appends to self.hdul for easy access
 
@@ -113,12 +118,6 @@ class IfuCube:
             for each source, the model will be created in an elliptical
             aperture with size source_mask_size time the semi-minor and semi-major
             axis of the detection (default is 6.)
-        max_source_size : float
-            sources with semi-major or semi-minor axes larger than this
-            value will not be considered in the foreground source model (default is 50.)
-        max_source_ell : float
-            sources with ellipticity larger than this value will not be
-            considered in the foreground source model. Default is 0.9.
         edges : int
             frame size removed to avoid problems related to the edge
             of the image

@@ -177,6 +177,56 @@ def collapse_cube(datacube, min_lambda=None, max_lambda=None, mask_z=None):
     del z_max, y_max, x_max
     return col_cube
 
+def collapse_mean_cube(datacube, statcube, min_lambda=None, max_lambda=None, threshold=5.):
+    """
+
+    Parameters
+    ----------
+    datacube : np.array
+        3D data file to be collapsed
+    statcube : np.array
+        3D variance file to be collapsed
+    min_lambda : int
+        minimum wavelength to collapse cube
+    max_lambda : int
+        maximum wavelength to collapse cube
+    threshold : int, float, optional
+        if no variance file in data, variance is created from the data. Parameter changes threshold of standard
+        deviation for the creation of this variance (default is 5.)
+
+    Returns
+    -------
+    np.array
+        collapsed data and variance
+
+    """
+
+    temp_collapsed_data = collapse_cube(datacube, min_lambda,
+                                        max_lambda)
+    temp_collapsed_stat = collapse_cube(statcube, min_lambda,
+                                        max_lambda)
+
+    temp_collapsed_stat = 1. / temp_collapsed_stat
+    bad_pix = np.isnan(temp_collapsed_data) | np.isnan(temp_collapsed_stat)
+    # to deal with np.nan a weight of (almost) zero is given to badPix
+    temp_collapsed_data[bad_pix] = 0.
+    temp_collapsed_stat[bad_pix] = np.nanmin(temp_collapsed_stat) / 1000.
+    collapsed_data, collapsed_weights = np.average(temp_collapsed_data,
+                                                           weights=temp_collapsed_stat,
+                                                           axis=0,
+                                                           returned=True)
+    collapsed_stat = 1. / collapsed_weights
+    plt.imshow(temp_collapsed_stat)
+    plt.show()
+    print("collapseCubeWMean: Images produced")
+
+    # Deleting temporary cubes to clear up memory
+    del temp_collapsed_data
+    del temp_collapsed_stat
+    del collapsed_weights
+
+    return collapsed_data, collapsed_stat
+
 
 def collapse_container(datacontainer, min_lambda=None, max_lambda=None, maskZ=None, var_thresh=5.):
     """ Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
@@ -189,9 +239,11 @@ def collapse_container(datacontainer, min_lambda=None, max_lambda=None, maskZ=No
         Minimum wavelength
     max_lambda : int, optional
         Maximum wavelength
+    maskZ : np.array, optional
+        range of z-axis values that the user can mask in the datacube
     var_thresh : int, float, optional
-        if varcontainer is None, this value determines standard deviation threshold to create variance cube from data
-        (default is 5.)
+        if no variance in container, this value determines standard deviation threshold
+         to create variance cube from data (default is 5.)
 
     Returns
     -------
@@ -427,7 +479,7 @@ def smallCube(datacontainer, min_lambda=None, max_lambda=None):
     Parameters
     ----------
     datacontainer : HDUList
-        astropy .fits file
+        astropy .fits filex
     min_lambda : int
         min channel to create collapsed image
     max_lambda : int
@@ -487,7 +539,7 @@ def smallCube(datacontainer, min_lambda=None, max_lambda=None):
         print("smallCube: max_lambda is outside the cube size. Set to {}".format(int(z_max)))
         max_lambda = int(z_max)
 
-    small_cube_CRVAL3 = (convert_to_wave(datacontainer, datacopy))
+    small_cube_CRVAL3 = (convert_to_wave(datacontainer, min_lambda))
     print("smallCube: Creating smaller cube")
     print("           The old pivot wavelength was {}".format(data_headers['CRVAL3']))
     print("           The new pivot wavelength is {}".format(small_cube_CRVAL3))

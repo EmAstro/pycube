@@ -21,8 +21,10 @@ from IPython import embed
 cSpeed = 299792.458  # in km/s
 
 
-def smoothChiCube(datacube,
-                  statcube,
+def smoothChiCube(datacontainer,
+                  min_lambda,
+                  max_lambda,
+                  statcube=None,
                   a_smooth=1.,
                   v_smooth=1.,
                   truncate=5.):
@@ -46,10 +48,14 @@ def smoothChiCube(datacube,
 
     Parameters
     ----------
-    datacube: np.array
-        data in a 3D array
-    statcube : np.array
-        variance in a 3D array
+    datacontainer : IFUcube, np.array
+        data initialized in cubeClass.py, or data in 3D array resulting from subtractBg
+    min_lambda : int
+        minimum wavelength to collapse data
+    max_lambda : int
+        maximum wavelength to collapse data
+    statcube : np.array, optional
+        variance in 3D array, resulting array from subtractBg
     a_smooth : float
         smooth length in pixel in the spatial direction
     v_smooth : float
@@ -63,6 +69,14 @@ def smoothChiCube(datacube,
     chi_cube, sChiCube : np.array
         X-cube and smoothed X-cube
     """
+
+    print("smoothChiCube: Shrinking Cube with given parameters")
+    if statcube is None:
+        datacube, statcube = datacontainer.get_data_stat()
+    else:
+        datacube = datacontainer
+    datacube = datacube[min_lambda:max_lambda, :, :]
+    statcube = statcube[min_lambda:max_lambda, :, :]
 
     print("smoothChiCube: Smoothing Cube with 3D Gaussian Kernel")
 
@@ -98,7 +112,7 @@ def maskHalo(chi_cube,
              threshold=2.,
              threshold_type='relative',
              bad_pixel_mask=None,
-             n_sigma_extreme = 5.,
+             n_sigma_extreme=5.,
              output='Object',
              debug=False,
              showDebug=False):
@@ -209,9 +223,9 @@ def maskHalo(chi_cube,
     print("          and the sigma is: {:+0.4f}".format(chi_cube_sig))
     if threshold_type == 'relative':
         print("mask_halo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
-                                                                                                     chi_cube_sig,
-                                                                                                     threshold *
-                                                                                                     chi_cube_sig))
+                                                                                                      chi_cube_sig,
+                                                                                                      threshold *
+                                                                                                      chi_cube_sig))
         threshold_halo = threshold * chi_cube_sig_z
     elif threshold_type == 'absolute':
         print("mask_halo: absolute threshold value set to {:0.2f}".format(threshold))
@@ -220,9 +234,9 @@ def maskHalo(chi_cube,
         print("mask_halo: WARNING!")
         print("          no threshold_type set, assumed relative")
         print("mask_halo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
-                                                                                                     chi_cube_sig,
-                                                                                                     threshold *
-                                                                                                     chi_cube_sig))
+                                                                                                      chi_cube_sig,
+                                                                                                      threshold *
+                                                                                                      chi_cube_sig))
         threshold_halo = threshold * chi_cube_sig_z
 
     if debug:
@@ -242,7 +256,7 @@ def maskHalo(chi_cube,
                                             chi_cube_edges[:-1],
                                             chi_cube_hist,
                                             p0=[np.nansum(chi_cube_hist * chi_cube_edges_bin) / (
-                                                          chi_cube_sig * np.sqrt((2. * np.pi))),
+                                                    chi_cube_sig * np.sqrt((2. * np.pi))),
                                                 chi_cube_med, chi_cube_sig])
 
         plt.figure(1, figsize=(12, 6))
@@ -295,8 +309,8 @@ def maskHalo(chi_cube,
                                                                                   float(z_pos)))
     # Check small cube
     small_chicopy = chicopy[int(z_pos - 3. * rad_bad_pix):int(z_pos + 3. * rad_bad_pix),
-                            int(y_pos - 3. * rad_bad_pix):int(y_pos + 3. * rad_bad_pix),
-                            int(x_pos - 3. * rad_bad_pix):int(x_pos + 3. * rad_bad_pix)]
+                    int(y_pos - 3. * rad_bad_pix):int(y_pos + 3. * rad_bad_pix),
+                    int(x_pos - 3. * rad_bad_pix):int(x_pos + 3. * rad_bad_pix)]
 
     if np.nansum(np.isfinite(small_chicopy)) > 0:
         max_s_chicopy = np.nanmax(small_chicopy)
@@ -379,8 +393,8 @@ def maskHalo(chi_cube,
         x_plot_min, x_plot_max = int(x_pos - rad_max), int(x_pos + rad_max)
         y_plot_min, y_plot_max = int(y_pos - rad_max), int(y_pos + rad_max)
         std_plot = np.nanstd(chi_cube[z_max_chi,
-                            y_plot_min:x_plot_max,
-                            x_plot_min:y_plot_max])
+                             y_plot_min:x_plot_max,
+                             x_plot_min:y_plot_max])
         # Plotting field image
         ax_image.imshow(chi_cube[z_max_chi, :, :],
                         cmap="Greys", origin="lower",
@@ -846,5 +860,3 @@ def maxExtent(mask_halo_2D, x_pos=None, y_pos=None):
     from_pix_extent = np.nanmax(manip.distFromPixel(float(0.), y_pos, x_pos, z_pivot, y_pivot, x_pivot))
 
     return float(max_extent), float(from_pix_extent)
-
-
