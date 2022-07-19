@@ -427,9 +427,12 @@ def subtractBg(datacontainer,
         bg_mask_3D = np.broadcast_to((bg_mask_2d == 1), statcopy_nan.shape)
         statcopy_nan[(bg_mask_3D == 1)] = np.nan
         # Calculating average variance per channel
-        # averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))  # TODO
+        # ToDo Test the usage of sigma_clip
+        # averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))
 
-        averageStatBg = np.nanmean(sigma_clip(statcopy_nan, maxiters=10, sigma=2.3, axis=(1, 2)), axis=(1, 2))
+        averageStatBg = np.nanmean(sigma_clip(statcopy_nan, cenfunc=np.nanmean,
+                                              stdfunc=np.nanstd, maxiters=10, sigma=5.,
+                                              grow=3., axis=(1, 2)), axis=(1, 2))
         del statcopy_nan
         del bg_mask_3D
         # Rescaling cube variance
