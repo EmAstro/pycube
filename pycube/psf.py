@@ -190,6 +190,7 @@ def statBg(datacontainer,
            source_mask_size=6.,
            edges=60,
            output='Object',
+           sigma_clipping=False,
            debug=False,
            showDebug=False):
     """This estimates the sky background of a MUSE cube after removing sources.
@@ -225,6 +226,10 @@ def statBg(datacontainer,
         of the image (default is 60)
     output : string
         root file name for output (default is 'Object')
+    sigma_clipping : boolean, optional
+        Specifies whether sigma clipping of the data is necessary.
+        Iterates through data and removes values significantly distant from the standard deviation
+        High variance in correction value output may be corrected using this (default is False)
 
     Returns
     -------
@@ -272,6 +277,15 @@ def statBg(datacontainer,
     print("statBg: Performing b/g statistic")
     mask_bg_3D = np.broadcast_to((mask_bg_2D == 1), datacopy.shape)
     datacopy[(mask_bg_3D == 1)] = np.nan
+    from IPython import embed
+    embed()
+    if sigma_clipping:
+        datacopy_clipped = sigma_clip(datacopy, cenfunc=np.nanmean,
+                                      stdfunc=np.nanstd, maxiters=10, sigma=5.,
+                                      grow=3., axis=(1, 2), masked=True)
+        mask_clipped = datacopy_clipped.mask
+        datacopy[(mask_clipped == 1)] = np.nan
+
     average_bg, std_bg, median_bg, var_bg, pixels_bg = np.nanmean(datacopy, axis=(1, 2)), \
                                                        np.nanstd(datacopy, axis=(1, 2)), \
                                                        np.nanmedian(datacopy, axis=(1, 2)), \
@@ -337,6 +351,7 @@ def subtractBg(datacontainer,
                source_mask_size=6.,
                edges=60,
                output='Object',
+               sigma_clipping=False,
                debug=False,
                showDebug=False):
     """This macro remove residual background in the cubes and fix the variance
@@ -373,6 +388,10 @@ def subtractBg(datacontainer,
         of the image (default is 60)
     output : string
         root file name for outputs
+    sigma_clipping : boolean, optional
+        Specifies whether sigma clipping of the data is necessary.
+        Iterates through data and removes values significantly distant from the standard deviation
+        High variance in correction value output may be corrected using this (default is False)
 
     Returns
     -------
@@ -404,6 +423,7 @@ def subtractBg(datacontainer,
                                                   min_source_area=min_source_area,
                                                   source_mask_size=source_mask_size,
                                                   edges=edges,
+                                                  sigma_clipping=sigma_clipping,
                                                   output=output,
                                                   debug=debug,
                                                   showDebug=showDebug)
@@ -427,12 +447,8 @@ def subtractBg(datacontainer,
         bg_mask_3D = np.broadcast_to((bg_mask_2d == 1), statcopy_nan.shape)
         statcopy_nan[(bg_mask_3D == 1)] = np.nan
         # Calculating average variance per channel
-        # ToDo Test the usage of sigma_clip
-        # averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))
+        averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))
 
-        averageStatBg = np.nanmean(sigma_clip(statcopy_nan, cenfunc=np.nanmean,
-                                              stdfunc=np.nanstd, maxiters=10, sigma=5.,
-                                              grow=3., axis=(1, 2)), axis=(1, 2))
         del statcopy_nan
         del bg_mask_3D
         # Rescaling cube variance
@@ -628,9 +644,9 @@ def sources_fg(datacube,
     fg_min = fg_min[fg_shape]
     fg_angle = fg_angle[fg_shape]
     print("sources_fg: Removing sources with size larger than {}".format(max_source_size))
-    print("sources_fg: Removing sources with ellepticity larger than {}".format(
+    print("sources_fg: Removing sources with ellipticity larger than {}".format(
         np.max([np.percentile(fg_ell, 10), max_source_ell])))
-    print("sources_fg: Detected {} sources after removing unusal shapes".format(len(fg_xpos)))
+    print("sources_fg: Detected {} sources after removing unusual shapes".format(len(fg_xpos)))
 
     del fg_datacopy
     del fg_bright
