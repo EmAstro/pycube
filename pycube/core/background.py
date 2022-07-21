@@ -4,7 +4,7 @@ from pycube.core import manip
 BACKGROUND_MODES = ['median', 'sextractor']
 
 
-def median_background(datacontainer, sigma):
+def median_background(datacontainer):
     """
     Backgrounds should only be implemented on 2D array.
     For 3D files, collapse to a desired dimension before passing function.
@@ -14,14 +14,12 @@ def median_background(datacontainer, sigma):
     ----------
     datacontainer : 2D array
         Collapsed data to calculate background from
-    sigma: not implemented
-
     Returns
     -------
     float
         Median value of datacube's background ignoring NaNs.
     """
-    return np.nanmedian(datacontainer, 0)
+    return np.nanmedian(datacontainer)
 
 
 def sextractor_background(datacontainer, statcube, var_value):
@@ -44,8 +42,12 @@ def sextractor_background(datacontainer, statcube, var_value):
     SEP object
         SExtractor adjusted background of 2D array
     """
-    datacopy = np.copy(datacontainer)
-    statcopy = np.copy(statcube)
+    if statcube is None:
+        datacopy, statcopy = datacontainer.get_data_stat()
+    else:
+        datacopy = np.copy(datacontainer)
+        statcopy = np.copy(statcube)
+
     s_sigma = manip.find_sigma(statcopy)
     bg_median = np.nanmedian(datacopy)
     bg_mask = np.zeros_like(datacopy)

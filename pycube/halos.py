@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import gc
 import astropy
 
-from matplotlib import gridspec
 from matplotlib.patches import Ellipse
 
 from scipy import ndimage
@@ -15,17 +14,16 @@ from astropy.convolution import convolve
 
 from pycube.core import manip
 
-
 cSpeed = 299792.458  # in km/s
 
 
-def smoothChiCube(datacontainer,
-                  min_lambda,
-                  max_lambda,
-                  statcube=None,
-                  a_smooth=1.,
-                  v_smooth=1.,
-                  truncate=5.):
+def smooth_chicube(datacontainer,
+                   min_lambda,
+                   max_lambda,
+                   statcube=None,
+                   a_smooth=1.,
+                   v_smooth=1.,
+                   truncate=5.):
     """Given a (PSF subtracted) IFUcube, the macro smooth both
     the datacube and the statcube with a 3D gaussian Kernel.
     The same sigma is considered in both spatial axes
@@ -47,13 +45,13 @@ def smoothChiCube(datacontainer,
     Parameters
     ----------
     datacontainer : IFUcube, np.array
-        data initialized in cubeClass.py, or data in 3D array resulting from subtractBg
+        data initialized in cubeClass.py, or data in 3D array resulting from subtract_bg
     min_lambda : int
         minimum wavelength to collapse data
     max_lambda : int
         maximum wavelength to collapse data
     statcube : np.array, optional
-        variance in 3D array, resulting array from subtractBg
+        variance in 3D array, resulting array from subtrac_bg
     a_smooth : float
         smooth length in pixel in the spatial direction
     v_smooth : float
@@ -68,7 +66,7 @@ def smoothChiCube(datacontainer,
         X-cube and smoothed X-cube
     """
 
-    print("smoothChiCube: Shrinking Cube with given parameters")
+    print("smooth_chicube: Shrinking cube with given parameters")
     if statcube is None:
         datacube, statcube = datacontainer.get_data_stat()
     else:
@@ -76,13 +74,13 @@ def smoothChiCube(datacontainer,
     datacube = datacube[min_lambda:max_lambda, :, :]
     statcube = statcube[min_lambda:max_lambda, :, :]
 
-    print("smoothChiCube: Smoothing Cube with 3D Gaussian Kernel")
+    print("smooth_chicube: Smoothing cube with 3D Gaussian Kernel")
 
     data_sigma = (v_smooth, a_smooth, a_smooth)
     stat_sigma = (v_smooth / np.sqrt(2.), a_smooth / np.sqrt(2.), a_smooth / np.sqrt(2.))
 
     # Removing nans
-    datacopy = np.nan_to_num(datacube, copy='True')
+    datacopy = np.nan_to_num(datacube, copy=True)
     statcopy = np.copy(statcube)
     statcopy[np.isnan(statcube)] = np.nanmax(statcube)
 
@@ -100,20 +98,20 @@ def smoothChiCube(datacontainer,
     return datacopy / np.sqrt(statcopy), data_smooth / np.sqrt(stat_smooth)
 
 
-def maskHalo(chi_cube,
-             x_pos,
-             y_pos,
-             z_pos,
-             rad_bad_pix,
-             rad_max,
-             r_connect=2,
-             threshold=2.,
-             threshold_type='relative',
-             bad_pixel_mask=None,
-             n_sigma_extreme=5.,
-             output='Object',
-             debug=False,
-             showDebug=False):
+def halo_mask(chi_cube,
+              x_pos,
+              y_pos,
+              z_pos,
+              rad_bad_pix,
+              rad_max,
+              r_connect=2,
+              threshold=2.,
+              threshold_type='relative',
+              bad_pixel_mask=None,
+              n_sigma_extreme=5.,
+              output='Object',
+              debug=False,
+              show_debug=False):
     """Given a PSF subtracted data cube (either smoothed or not) this
     macro, after masking some regions, performs a friends of friends
     search for connected pixels above a certain threshold in S/N.
@@ -147,7 +145,7 @@ def maskHalo(chi_cube,
         extended emission. This helps to prevent boundary problems
         and to speed up the algorithm.
     r_connect : int
-        default is rConnect=2. Connecting distance used in the FoF
+        default is r_connect=2. Connecting distance used in the FoF
         algorithm.
     threshold : float
         S/N threshold to consider a pixel as part of the extended
@@ -168,6 +166,8 @@ def maskHalo(chi_cube,
         the cube will be masked (default is 5.)
     output : string
         root file name for outputs
+    debug, show_debug : boolean, optional
+        runs debug sequence to display output of function (default False)
 
     Returns
     -------
@@ -178,12 +178,12 @@ def maskHalo(chi_cube,
     """
 
     # Creating a mask
-    print("maskHalo: removing inner region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
+    print("halo_mask: removing inner region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
     print("          with radius {} pixels".format(rad_bad_pix))
     bad_mask = manip.location(chi_cube[0, :, :], x_position=x_pos, y_position=y_pos,
                               semi_maj=rad_bad_pix, semi_min=rad_bad_pix)
 
-    print("maskHalo: removing outer region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
+    print("halo_mask: removing outer region around (x,y)=({:.2f},{:.2f})".format(float(x_pos), float(y_pos)))
     print("          with radius {} pixels".format(rad_max))
     outer_bad_mask = manip.location(chi_cube[0, :, :], x_position=x_pos, y_position=y_pos,
                                     semi_maj=rad_max, semi_min=rad_max)
@@ -191,7 +191,7 @@ def maskHalo(chi_cube,
     del outer_bad_mask
 
     if bad_pixel_mask is not None:
-        print("maskHalo: removing {} bad voxels".format(np.sum(bad_pixel_mask)))
+        print("halo_mask: removing {} bad voxels".format(np.sum(bad_pixel_mask)))
         bad_mask[(bad_pixel_mask > 0)] = 1
 
     # Filling up mask
@@ -203,7 +203,7 @@ def maskHalo(chi_cube,
         chicopy[channel, :, :][(bad_mask == 1)] = np.nan
         chi_cube_mask[channel, :, :][(bad_mask == 1)] = 1
 
-    print("maskHalo: defining threshold level")
+    print("halo_mask: defining threshold level")
 
     # In absence of systematics, the distribution of the
     # X values in a single slice should be a gaussian
@@ -215,34 +215,34 @@ def maskHalo(chi_cube,
     # more or less Gaussian. This is NOT true, and will
     # be fixed in the future.
 
-    chi_cube_ave, chi_cube_med, chi_cube_sig = manip.statFullCube(chicopy, n_sigma_extreme=n_sigma_extreme)
-    chi_cube_ave_z, chi_cube_med_z, chi_cube_sig_z = manip.statFullCubeZ(chicopy, n_sigma_extreme=n_sigma_extreme)
-    print("maskHalo: the median value of the voxels is: {:+0.4f}".format(chi_cube_med))
+    chi_cube_ave, chi_cube_med, chi_cube_sig = manip.stat_fullcube(chicopy, n_sigma_extreme=n_sigma_extreme)
+    chi_cube_ave_z, chi_cube_med_z, chi_cube_sig_z = manip.stat_fullcube_z(chicopy, n_sigma_extreme=n_sigma_extreme)
+    print("halo_mask: the median value of the voxels is: {:+0.4f}".format(chi_cube_med))
     print("          and the sigma is: {:+0.4f}".format(chi_cube_sig))
     if threshold_type == 'relative':
-        print("maskHalo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
+        print("halo_mask: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
                                                                                                       chi_cube_sig,
                                                                                                       threshold *
                                                                                                       chi_cube_sig))
         threshold_halo = threshold * chi_cube_sig_z
     elif threshold_type == 'absolute':
-        print("maskHalo: absolute threshold value set to {:0.2f}".format(threshold))
+        print("halo_mask: absolute threshold value set to {:0.2f}".format(threshold))
         threshold_halo = threshold * np.ones_like(chi_cube_sig_z)
     else:
-        print("maskHalo: WARNING!")
+        print("halo_mask: WARNING!")
         print("          no threshold_type set, assumed relative")
-        print("maskHalo: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
+        print("halo_mask: the average relative threshold value set to {:0.2f}*{:0.4f}={:0.4f}".format(threshold,
                                                                                                       chi_cube_sig,
                                                                                                       threshold *
                                                                                                       chi_cube_sig))
         threshold_halo = threshold * chi_cube_sig_z
 
     if debug:
-        print("maskHalo: Saving debug image on {}_voxelDistribution.pdf".format(output))
+        print("halo_mask: Saving debug image on {}_voxelDistribution.pdf".format(output))
         print("          in principle the distribution should be gaussian")
         print("          showing only channel {}".format(np.int(z_max / 2.)))
 
-        manip.nicePlot()
+        manip.nice_plot()
 
         # Populating the histogram
         chi_cube_hist, chi_cube_edges = np.histogram(
@@ -258,7 +258,6 @@ def maskHalo(chi_cube,
                                                 chi_cube_med, chi_cube_sig])
 
         plt.figure(1, figsize=(12, 6))
-        gs = gridspec.GridSpec(1, 2)
 
         ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
         ax_hist = plt.subplot2grid((1, 2), (0, 1), colspan=1)
@@ -293,7 +292,7 @@ def maskHalo(chi_cube,
         plt.tight_layout()
         plt.savefig(output + "_voxelDistribution.pdf", dpi=400.,
                     format="pdf", bbox_inches="tight")
-        if showDebug:
+        if show_debug:
             plt.show()
         plt.close()
         del chi_cube_hist
@@ -302,32 +301,31 @@ def maskHalo(chi_cube,
         del gauss_covar
 
     # Searching for the Max value from which to start to look for connections
-    print("maskHalo: searching for extended emission")
+    print("halo_mask: searching for extended emission")
     print("          starting from from (x,y,z)=({:0.2f},{:0.3f},{:0.0f})".format(float(x_pos), float(y_pos),
                                                                                   float(z_pos)))
     # Check small cube
     small_chicopy = chicopy[int(z_pos - 3. * rad_bad_pix):int(z_pos + 3. * rad_bad_pix),
-                    int(y_pos - 3. * rad_bad_pix):int(y_pos + 3. * rad_bad_pix),
-                    int(x_pos - 3. * rad_bad_pix):int(x_pos + 3. * rad_bad_pix)]
-
+                            int(y_pos - 3. * rad_bad_pix):int(y_pos + 3. * rad_bad_pix),
+                            int(x_pos - 3. * rad_bad_pix):int(x_pos + 3. * rad_bad_pix)]
     if np.nansum(np.isfinite(small_chicopy)) > 0:
         max_s_chicopy = np.nanmax(small_chicopy)
         # Selecting the closest value
         z_max_chi, y_max_chi, x_max_chi = np.where(chicopy == max_s_chicopy)
-        dist_pix = manip.distFromPixel(z_pos, y_pos, x_pos,
-                                       z_max_chi, y_max_chi, x_max_chi)
+        dist_pix = manip.pixel_dist(z_pos, y_pos, x_pos,
+                                    z_max_chi, y_max_chi, x_max_chi)
         z_max_chi = int(z_max_chi[np.where(dist_pix == np.min(dist_pix))])
         y_max_chi = int(y_max_chi[np.where(dist_pix == np.min(dist_pix))])
         x_max_chi = int(x_max_chi[np.where(dist_pix == np.min(dist_pix))])
 
-        print("maskHalo: the maximum S/N detected is {:0.3f} ".format(max_s_chicopy))
+        print("halo_mask: the maximum S/N detected is {:0.3f} ".format(max_s_chicopy))
         print("          at the location (x,y,z)=({},{},{})".format(x_max_chi, y_max_chi, z_max_chi))
     else:
         max_s_chicopy = threshold
         z_max_chi, y_max_chi, x_max_chi = z_pos, y_pos, x_pos
     del small_chicopy
 
-    print("maskHalo: starting to fill the halo mask")
+    print("halo_mask: starting to fill the halo mask")
     # this mask is equal to 1 if the pixel is considered part of the halo
     # equal to 0 if it is not
     mask_halo = np.zeros_like(chi_cube)
@@ -373,17 +371,16 @@ def maskHalo(chi_cube,
     # Removing masked data
 
     if debug:
-        print("maskHalo: Creating debug image")
+        print("halo_mask: Creating debug image")
         print("          Plotting Channel {} where the most significant voxel is.".format(z_max_chi))
         print("          The location of this voxel is marked with a red circle")
-        print("          The position of the quasars is in blue")
+        print("          The position of the quasar is in blue")
 
-        manip.nicePlot()
+        manip.nice_plot()
 
         mask_halo_2D, mask_halo_min_z, mask_halo_max_z = spectral_mask_halo(mask_halo)
 
         plt.figure(1, figsize=(12, 6))
-        gs = gridspec.GridSpec(1, 2)
 
         ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
         ax_mask = plt.subplot2grid((1, 2), (0, 1), colspan=1)
@@ -441,11 +438,11 @@ def maskHalo(chi_cube,
         ax_mask.set_ylim(bottom=y_pos - rad_max, top=y_pos + rad_max)
         ax_mask.set_title(r"Excluded Pixels Mask")
 
-        print("maskHalo: debug image saved in {}_maskHaloStartingVoxel.pdf".format(output))
+        print("halo_mask: debug image saved in {}_maskHaloStartingVoxel.pdf".format(output))
         plt.tight_layout()
         plt.savefig(output + "_maskHaloStartingVoxel.pdf", dpi=400.,
                     format="pdf", bbox_inches="tight")
-        if showDebug:
+        if show_debug:
             plt.show()
         plt.close()
         del mask_halo_2D
@@ -505,7 +502,7 @@ def spectral_mask_halo(mask_halo):
 
 def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
                     min_channel=None, max_channel=None,
-                    debug=False, showDebug=False):
+                    debug=False, show_debug=False):
     """
     Given the halo mask, the macro performs some quality
     check:
@@ -527,33 +524,35 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
         only voxels between channelMin and max_channel in the
         spectral direction will be considered in the creation
         of the cleanMask
+    debug, show_debug : boolean, optional
+        runs debug sequence to display output of function (default False)
 
     Returns
     -------
-    maskHaloClean : np.array
+    mask_halo_cleaned : np.array
         cleaned 3D mask of the halo location.
     """
 
-    print("clean_mask_halo: cleaning halo mask")
+    print("mask_halo_cleaned: cleaning halo mask")
 
     if np.nansum(mask_halo) < np.int(min_vox / 2.):
-        print("clean_mask_halo: not enough voxels in the mask")
+        print("mask_halo_cleaned: not enough voxels in the mask")
         return np.zeros_like(mask_halo, int)
 
-    clean_mask_halo = np.copy(mask_halo)
+    mask_halo_cleaned = np.copy(mask_halo)
     # Collapsing along 1,2 to obtain the z-map
-    maskHaloCleanXY = np.nansum(clean_mask_halo, axis=0)
-    z_max, y_max, x_max = np.shape(clean_mask_halo)
+    maskHaloCleanXY = np.nansum(mask_halo_cleaned, axis=0)
+    z_max, y_max, x_max = np.shape(mask_halo_cleaned)
     for channel in np.arange(0, z_max, 1, int):
-        clean_mask_halo[channel, :, :][(maskHaloCleanXY <= delta_z_min)] = 0
-    if np.nansum(clean_mask_halo) <= min_vox:
-        clean_mask_halo[:, :, :] = 0
+        mask_halo_cleaned[channel, :, :][(maskHaloCleanXY <= delta_z_min)] = 0
+    if np.nansum(mask_halo_cleaned) <= min_vox:
+        mask_halo_cleaned[:, :, :] = 0
     if min_channel is not None:
-        clean_mask_halo[0:min_channel, :, :] = 0
+        mask_halo_cleaned[0:min_channel, :, :] = 0
     if max_channel is not None:
-        clean_mask_halo[max_channel:-1, :, :] = 0
+        mask_halo_cleaned[max_channel:-1, :, :] = 0
 
-    print("clean_mask_halo: Removed {} voxels from the mask".format(np.sum(mask_halo) - np.sum(clean_mask_halo)))
+    print("mask_halo_cleaned: Removed {} voxels from the mask".format(np.sum(mask_halo) - np.sum(mask_halo_cleaned)))
 
     if debug:
         z_max, y_max, x_max = np.shape(mask_halo)
@@ -564,7 +563,7 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
         min_y_mask, max_y_mask = np.nanmin(channel_y[mask_halo_y > 0]), np.nanmax(channel_y[mask_halo_y > 0])
         min_x_mask, max_x_mask = np.nanmin(channel_x[mask_halo_x > 0]), np.nanmax(channel_x[mask_halo_x > 0])
         mask_halo_2D, _, _ = spectral_mask_halo(mask_halo)
-        clean_mask_2D, _, _ = spectral_mask_halo(clean_mask_halo)
+        clean_mask_2D, _, _ = spectral_mask_halo(mask_halo_cleaned)
         plt.figure(1, figsize=(6, 6))
         plt.contour(mask_halo_2D, colors='blue',
                     alpha=0.9, origin="lower")
@@ -574,7 +573,7 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
         plt.ylim(min_y_mask - 2, max_y_mask + 2)
         plt.xlabel(r"X [Pixels]", size=30)
         plt.ylabel(r"Y [Pixels]", size=30)
-        if showDebug:
+        if show_debug:
             plt.show()
         plt.close()
         del mask_halo_2D
@@ -584,16 +583,16 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
     # Cleaning up memory
     del maskHaloCleanXY
 
-    return clean_mask_halo
+    return mask_halo_cleaned
 
 
-def makeMoments(datacontainer,
-                mask_halo,
-                central_wave=None,
-                s_smooth=None,
-                truncate=5.,
-                debug=False,
-                showDebug=False):
+def make_moments(datacontainer,
+                 mask_halo,
+                 central_wave=None,
+                 s_smooth=None,
+                 truncate=5.,
+                 debug=False,
+                 show_debug=False):
     """ Given a PSF-Subtracted datacube, this macro extracts the moment 0, 1, 2
     maps of the halo identified by mask_halo.
     Where:
@@ -632,6 +631,8 @@ def makeMoments(datacontainer,
     truncate : float
         number of sigma after which the smoothing kernel
         is truncated
+    debug, show_debug : boolean, optional
+        runs debug sequence to display output of function (default False)
 
     Returns
     -------
@@ -644,13 +645,13 @@ def makeMoments(datacontainer,
         are calculated. It is equal to the input wavelength
         if not set to None.
     """
-    print('makeMonents: reading in IFUcube')
+    print('make_moments: reading in IFUcube')
     headers = datacontainer.get_primary()
     datacopy, statcopy = datacontainer.get_data_stat()
-    print("makeMoments: estimating halo moments")
+    print("make_moments: estimating halo moments")
 
     if np.nansum(mask_halo) < 3:
-        print("makeMoments: not enough voxels to calculate moment maps")
+        print("make_moments: not enough voxels to calculate moment maps")
         central_wave = 0.
         null_image = np.zeros_like(datacopy[0, :, :], float)
         return null_image, null_image, null_image, central_wave
@@ -660,7 +661,7 @@ def makeMoments(datacontainer,
     gkernel_radius = 0
     while np.nansum(~np.isfinite(tmp_datacopy)) > 0:
         gkernel_radius = gkernel_radius + 2
-        print("makeMoments: masking {} NaNs with a {} spatial pixel Gaussian Kernel".format(
+        print("make_moments: masking {} NaNs with a {} spatial pixel Gaussian Kernel".format(
             np.nansum(~np.isfinite(tmp_datacopy)), gkernel_radius))
         print("             the total number of voxels is {}".format(np.size(tmp_datacopy)))
         gkernel = astropy.convolution.Gaussian2DKernel(gkernel_radius)
@@ -675,7 +676,7 @@ def makeMoments(datacontainer,
         del blur_channel, data_channel
 
     if s_smooth is not None:
-        print("makeMoments: smoothing cube")
+        print("make_moments: smoothing cube")
         v_smooth = 0
         data_sigma = (v_smooth, s_smooth, s_smooth)
         # Removing nans
@@ -684,9 +685,9 @@ def makeMoments(datacontainer,
                                                        truncate=truncate)
     # Extract Spectrum
     mask_halo_2D, min_z_mask, max_z_mask = spectral_mask_halo(mask_halo)
-    flux_halo, err_flux_halo = manip.quickSpectrumNoBgMask(datacontainer,
+    flux_halo, err_flux_halo = manip.q_spectrum_no_bg_mask(datacontainer,
                                                            mask_halo_2D)
-    flux_halo_smooth, err_flux_halo_smooth = manip.quickSpectrumNoBgMask(datacontainer,
+    flux_halo_smooth, err_flux_halo_smooth = manip.q_spectrum_no_bg_mask(datacontainer,
                                                                          mask_halo_2D)
 
     # removing voxels outside the halo
@@ -703,7 +704,7 @@ def makeMoments(datacontainer,
 
     if central_wave is None:
         central_wave = np.nansum(wave * optimal_flux_halo) / np.nansum(optimal_flux_halo)
-    print("makeMoments: the central wavelength considered is {:+.2f}".format(central_wave))
+    print("make_moments: the central wavelength considered is {:+.2f}".format(central_wave))
 
     # Moment Zero
     mom0 = manip.collapse_cube(tmp_datacopy)
@@ -723,10 +724,10 @@ def makeMoments(datacontainer,
 
     if debug:
 
-        print("makeMoments: showing debug image:")
+        print("make_moments: showing debug image:")
         print("             spectrum and optimally extracted spectrum")
 
-        manip.nicePlot()
+        manip.nice_plot()
 
         # Setting limits for halo image
         channel_y = np.arange(0, y_max, 1, int)
@@ -737,7 +738,6 @@ def makeMoments(datacontainer,
         min_x_mask, max_x_mask = np.nanmin(channel_x[mask_halo_x > 0]), np.nanmax(channel_x[mask_halo_x > 0])
 
         plt.figure(1, figsize=(18, 6))
-        gs = gridspec.GridSpec(1, 3)
 
         ax_imag = plt.subplot2grid((1, 3), (0, 0), colspan=1)
         ax_spec = plt.subplot2grid((1, 3), (0, 1), colspan=2)
@@ -759,15 +759,14 @@ def makeMoments(datacontainer,
         ax_spec.axvline(central_wave, color="red",
                         zorder=1, linestyle='-')
         plt.tight_layout()
-        if showDebug:
+        if show_debug:
             plt.show()
         plt.close()
 
-        print("makeMoments: showing debug image:")
+        print("make_moments: showing debug image:")
         print("             0, 1, and 2 moments")
 
         plt.figure(1, figsize=(18, 6))
-        gs = gridspec.GridSpec(1, 3)
 
         ax_mom0 = plt.subplot2grid((1, 3), (0, 0), colspan=1)
         ax_mom1 = plt.subplot2grid((1, 3), (0, 1), colspan=1)
@@ -802,7 +801,7 @@ def makeMoments(datacontainer,
         cbMom2 = plt.colorbar(img_mom2, ax=ax_mom2, shrink=0.5)
 
         plt.tight_layout()
-        if showDebug:
+        if show_debug:
             plt.show()
         plt.close()
 
@@ -848,13 +847,13 @@ def maxExtent(mask_halo_2D, x_pos=None, y_pos=None):
     y_pivot, x_pivot = np.where(mask_halo_2D > 0)
     z_pivot = np.zeros_like(y_pivot, int)
     for z_index, y_index, x_index in zip(z_pivot, y_pivot, x_pivot):
-        temp_max_ext = np.nanmax(manip.distFromPixel(z_index, y_index, x_index, z_pivot, y_pivot, x_pivot))
+        temp_max_ext = np.nanmax(manip.pixel_dist(z_index, y_index, x_index, z_pivot, y_pivot, x_pivot))
         if temp_max_ext > max_extent:
             max_extent = temp_max_ext
 
     if x_pos is None:
         return float(max_extent), 0.
 
-    from_pix_extent = np.nanmax(manip.distFromPixel(float(0.), y_pos, x_pos, z_pivot, y_pivot, x_pivot))
+    from_pix_extent = np.nanmax(manip.pixel_dist(float(0.), y_pos, x_pos, z_pivot, y_pivot, x_pivot))
 
     return float(max_extent), float(from_pix_extent)
