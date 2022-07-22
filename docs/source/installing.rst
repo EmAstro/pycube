@@ -18,12 +18,16 @@ python and dependencies
 
 pycube runs with `python <http://www.python.org/>`_ 3.9 and with the following dependencies:
 
-* `python <http://www.python.org/>`_ -- version 3.9 or later
+* `python <http://www.python.org/>`_ -- version 3.9
 * `astropy <https://www.astropy.org/>`_ -- version 4.2 or later
 * `matplotlib <https://matplotlib.org/>`_ -- version 3.3 or later
 * `numpy <http://www.numpy.org/>`_ -- version 1.20 or later
+* `scipy <https://docs.scipy.org/doc/>`_ -- version 1.7 or later
+* `astroquery <https://astroquery.readthedocs.io/en/latest/>`_ -- version 0.4 or later
+* `photutils <https://photutils.readthedocs.io/en/stable/>`_ -- version 1.4 or later
 * `extinction <https://extinction.readthedocs.io/en/latest/>`_ -- version 0.4 or later
 * `sep <https://sep.readthedocs.io/en/v1.1.x/>`_ -- version 1.2 or later
+
 If you are using Anaconda, you can check the presence of these packages with::
 
     conda list "^python$|astropy$|matplotlib$|numpy$"
@@ -34,10 +38,12 @@ If any of the packages are out of date, they can be updated with a command like:
 
     conda update astropy
 
-The package extinction is hosted by conda-forge. So the installation command is::
+The following packages are hosted by conda-forge. So the installation commands are::
 
+    conda install -c conda-forge astroquery
+    conda install -c conda-forge photutils
     conda install -c conda-forge extinction
-
+    conda install -c conda-forge sep
 
 git clone
 ---------
@@ -54,7 +60,7 @@ And, given that the packages is still work in progress and you may want to updat
 Testing the Installation
 ========================
 
-In order to assess whether ESOAsg has been properly installed, we suggest you run the following tests:
+In order to assess whether pycube has been properly installed, we suggest you run the following tests:
 
 1. Run the default tests
 ------------------------

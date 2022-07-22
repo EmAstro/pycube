@@ -28,16 +28,18 @@ def smooth_chicube(datacontainer,
     the datacube and the statcube with a 3D gaussian Kernel.
     The same sigma is considered in both spatial axes
     (a_smooth), while a different one can be set for the
-    spectral axis (v_smooth).
-    Note that the 'stat' cube is convolved as convol^2[statcube].
+    spectral axis (v_smooth).Note that the 'stat'
+    cube is convolved as convol^2[statcube].
     The smoothChiCube is than created as:
-                   convol[datacube]
-    sChiCube = ------------------------
-               sqrt(convol**2[statcube])
+
+    .. math::
+        sChiCube = \\frac{convol[datacube]}{\sqrt{(convol^2[statcube])}}
+
     The chi_cube is simply:
-                       datacube
-    chi_cube = -------------------------
-                    sqrt(statcube)
+
+    .. math::
+        chi\_cube = \\frac{datacube}{\sqrt{(statcube)}}
+
     Given that scipy has hard time to deal with NaNs, NaNs
     values in the dataCube are converted to zeroes, while the
     NaNs in the statCube to nanmax(statcube).
@@ -51,7 +53,7 @@ def smooth_chicube(datacontainer,
     max_lambda : int
         maximum wavelength to collapse data
     statcube : np.array, optional
-        variance in 3D array, resulting array from subtrac_bg
+        variance in 3D array, resulting array from subtract_bg
     a_smooth : float
         smooth length in pixel in the spatial direction
     v_smooth : float
@@ -541,10 +543,10 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
 
     mask_halo_cleaned = np.copy(mask_halo)
     # Collapsing along 1,2 to obtain the z-map
-    maskHaloCleanXY = np.nansum(mask_halo_cleaned, axis=0)
+    xy_mask_halo = np.nansum(mask_halo_cleaned, axis=0)
     z_max, y_max, x_max = np.shape(mask_halo_cleaned)
     for channel in np.arange(0, z_max, 1, int):
-        mask_halo_cleaned[channel, :, :][(maskHaloCleanXY <= delta_z_min)] = 0
+        mask_halo_cleaned[channel, :, :][(xy_mask_halo <= delta_z_min)] = 0
     if np.nansum(mask_halo_cleaned) <= min_vox:
         mask_halo_cleaned[:, :, :] = 0
     if min_channel is not None:
@@ -581,12 +583,14 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
         del mask_halo_y
         del mask_halo_x
     # Cleaning up memory
-    del maskHaloCleanXY
+    del xy_mask_halo
 
     return mask_halo_cleaned
 
 
 def make_moments(datacontainer,
+                 psf_data,
+                 sub_stat,
                  mask_halo,
                  central_wave=None,
                  s_smooth=None,
@@ -597,21 +601,25 @@ def make_moments(datacontainer,
     maps of the halo identified by mask_halo.
     Where:
 
-    * mom0: is the integrated value
+    **mom0**: is the integrated value
 
     .. math::
         mom0 = sum[Flux*dlambda]
+
     where sum is the sum along the channels
 
-    * mom1: is the velocity field
+    **mom1**: is the velocity field
+
      .. math::
          mom1 = sum[DV*Flux] / sum[Flux]
 
     where DV is the velocity difference of a channel from the centralWave
+
      .. math::
          DV = (wavelength - centralWave) / centralWave * speed of light
 
-    * mom2: is the velocity dispersion
+    **mom2**: is the velocity dispersion
+
     .. math::
          mom2 = sqrt[ sum[ Flux*(DV-mom1)**2. ] / sum[Flux] ]
 
@@ -619,6 +627,10 @@ def make_moments(datacontainer,
     ----------
     datacontainer : IFUcube object
         data initialized in the cubeClass.py file
+    psf_data : np.array
+        PSF subtracted data cube
+    sub_stat : np.array
+        background subtracted variance cube
     mask_halo : np.array
         mask where the detected extended emission is set to 1 and the background is set to 0. It has the same shape
         of the input datacube.
@@ -645,18 +657,16 @@ def make_moments(datacontainer,
         are calculated. It is equal to the input wavelength
         if not set to None.
     """
-    print('make_moments: reading in IFUcube')
-    headers = datacontainer.get_primary()
-    datacopy, statcopy = datacontainer.get_data_stat()
+
     print("make_moments: estimating halo moments")
 
     if np.nansum(mask_halo) < 3:
         print("make_moments: not enough voxels to calculate moment maps")
         central_wave = 0.
-        null_image = np.zeros_like(datacopy[0, :, :], float)
+        null_image = np.zeros_like(psf_data[0, :, :], float)
         return null_image, null_image, null_image, central_wave
 
-    tmp_datacopy = np.copy(datacopy)
+    tmp_datacopy = np.copy(psf_data)
 
     gkernel_radius = 0
     while np.nansum(~np.isfinite(tmp_datacopy)) > 0:
@@ -665,11 +675,11 @@ def make_moments(datacontainer,
             np.nansum(~np.isfinite(tmp_datacopy)), gkernel_radius))
         print("             the total number of voxels is {}".format(np.size(tmp_datacopy)))
         gkernel = astropy.convolution.Gaussian2DKernel(gkernel_radius)
-        z_max, y_max, x_max = np.shape(datacopy)
+        z_max, y_max, x_max = np.shape(psf_data)
         for channel in np.arange(0, z_max):
             data_channel = np.copy(tmp_datacopy[channel, :, :])
             # correct for nan with blurred images
-            blur_channel = astropy.convolution.convolve(np.copy(datacopy[channel, :, :]), gkernel)
+            blur_channel = astropy.convolution.convolve(np.copy(psf_data[channel, :, :]), gkernel)
             data_channel[np.logical_not(np.isfinite(data_channel))] = blur_channel[
                 np.logical_not(np.isfinite(data_channel))]
             tmp_datacopy[channel, :, :] = data_channel[:, :]
@@ -680,23 +690,23 @@ def make_moments(datacontainer,
         v_smooth = 0
         data_sigma = (v_smooth, s_smooth, s_smooth)
         # Removing nans
-        tmp_datacopy = np.nan_to_num(datacopy, copy=True)
+        tmp_datacopy = np.nan_to_num(psf_data, copy=True)
         tmp_datacopy = ndimage.filters.gaussian_filter(tmp_datacopy, data_sigma,
                                                        truncate=truncate)
     # Extract Spectrum
     mask_halo_2D, min_z_mask, max_z_mask = spectral_mask_halo(mask_halo)
-    flux_halo, err_flux_halo = manip.q_spectrum_no_bg_mask(datacontainer,
-                                                           mask_halo_2D)
-    flux_halo_smooth, err_flux_halo_smooth = manip.q_spectrum_no_bg_mask(datacontainer,
-                                                                         mask_halo_2D)
+    flux_halo, err_flux_halo = manip.q_spectrum_no_bg_mask(psf_data, statcube=sub_stat,
+                                                           mask_xy=mask_halo_2D)
+    flux_halo_smooth, err_flux_halo_smooth = manip.q_spectrum_no_bg_mask(psf_data, statcube=sub_stat,
+                                                                         mask_xy=mask_halo_2D)
 
     # removing voxels outside the halo
     tmp_datacopy[(mask_halo < 1)] = np.float(0.)
 
     # Defining wavelength range
-    z_max, y_max, x_max = np.shape(datacopy)
-    channels = np.arange(0, z_max)
-    wave = manip.convert_to_wave(headers, channels)
+    z_max, y_max, x_max = np.shape(psf_data)
+    channels = manip.channel_array(psf_data, 'z')
+    wave = manip.convert_to_wave(datacontainer, channels)
 
     # find central wavelength of the halo:
     # Extract "optimally extracted" spectrum
@@ -827,6 +837,8 @@ def maxExtent(mask_halo_2D, x_pos=None, y_pos=None):
     ----------
     mask_halo_2D : np.array
         2D mask of the halo location
+    x_pos, y_pos : int, float, optional
+        pixel maximums to limit the extended halo range
 
     Returns
     -------

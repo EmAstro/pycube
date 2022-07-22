@@ -2,7 +2,6 @@
 """
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
-from matplotlib import gridspec
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -520,10 +519,10 @@ def sources_fg(datacube,
         axis of the detection. Default is 6.
     max_source_size : float
         sources with semi-major or semi-minor axes larger than this
-        value will not considered in the foreground source model.
+        value will not be considered in the foreground source model.
         Default is 50.
     max_source_ell : float
-        sources with ellipticity larger than this value will not
+        sources with ellipticity larger than this value will not be
         considered in the foreground source model. Default is 0.9.
     rad_norm : float
         radius where to normalize the sources model. Default is 1.
@@ -669,7 +668,6 @@ def sources_fg(datacube,
         fg_datacopy[(edges_mask == 1)] = np.nan
 
         plt.figure(1, figsize=(18, 6))
-        gs = gridspec.GridSpec(1, 3)
 
         ax_image = plt.subplot2grid((1, 3), (0, 0), colspan=1)
         ax_mask = plt.subplot2grid((1, 3), (0, 1), colspan=1)
@@ -867,9 +865,9 @@ def clean_fg(datacontainer,
 
     Returns
     -------
-    dataCubeClean : np.array
-        data cube from which the detected sources have been removed
-    fgSources : dict
+     datacopy_clean, datacopy_model : np.array
+        data cube from which the detected sources have been removed and the model of fg cleaning
+    fg_sources : dict
         Dictionary containing relevant information on the detected
         sources including data, masks, flux, etc.
     """
@@ -950,7 +948,6 @@ def clean_fg(datacontainer,
             print("clean_fg: Spectrum of the source {}".format(sourceIdx))
 
             plt.figure(1, figsize=(18, 6))
-            gs = gridspec.GridSpec(1, 3)
 
             ax_imag = plt.subplot2grid((1, 3), (0, 0), colspan=1)
             ax_spec = plt.subplot2grid((1, 3), (0, 1), colspan=2)
@@ -989,7 +986,6 @@ def clean_fg(datacontainer,
         fg_data_clean = manip.collapse_cube(datacopy_clean, mask_z=mask_z,
                                             min_lambda=min_lambda, max_lambda=max_lambda)
         plt.figure(1, figsize=(12, 6))
-        gs = gridspec.GridSpec(1, 2)
 
         ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
         ax_clean = plt.subplot2grid((1, 2), (0, 1), colspan=1)
@@ -1155,7 +1151,6 @@ def create_psf(datacontainer,
         manip.nice_plot()
 
         plt.figure(1, figsize=(12, 6))
-        gs = gridspec.GridSpec(1, 2)
 
         ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
         ax_stat = plt.subplot2grid((1, 2), (0, 1), colspan=1)
@@ -1296,7 +1291,6 @@ def clean_psf(datacontainer,
         manip.nice_plot()
 
         plt.figure(1, figsize=(18, 6))
-        gs = gridspec.GridSpec(1, 3)
 
         ax_imag = plt.subplot2grid((1, 3), (0, 0), colspan=1)
         ax_spec = plt.subplot2grid((1, 3), (0, 1), colspan=2)

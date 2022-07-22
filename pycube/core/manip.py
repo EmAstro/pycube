@@ -138,7 +138,7 @@ def convert_to_channel(datacontainer,
     datacontainer : IFUcube
         data initialized in cubeClass.py
     datacube : np.array
-        3D data array to be converted to channels
+        3D data array to be converted to channel
     channels : str, optional
         Channel dimension ('x', 'y', 'z' or 'X', 'Y', 'Z') to create channel range array (default: 'z')
 
@@ -189,6 +189,7 @@ def collapse_cube(datacube,
         print("collapse_cube : Invalid / unspecified minimum wavelength. Min value is set to 0")
     if mask_z is not None:
         datacopy[mask_z, :, :] = np.nan
+    # Sums values between specifications, ignoring NaNs
     col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
     del datacopy
     del z_max, y_max, x_max
@@ -310,6 +311,7 @@ def collapse_container(datacontainer,
             tmp_col_statcube[mask_z, :, :] = np.nan
         col_statcube = np.nansum(tmp_col_statcube[min_lambda:max_lambda, :, :], axis=0)
 
+        del tmp_col_statcube
         del med_cube
         del std_cube
     del datacopy
@@ -364,9 +366,6 @@ def collapse_mean_container(datacontainer,
                                                    axis=0,
                                                    returned=True)
     collapsed_stat = 1. / collapsed_weights
-    plt.imshow(temp_collapsed_stat)
-    plt.show()
-    print("collapse_mean_container: Images produced")
 
     # Deleting temporary cubes to clear up memory
     del temp_collapsed_data
@@ -623,7 +622,7 @@ def dust_correction(datacontainer):
     coordinates = coord.SkyCoord(ra * u.deg, dec * u.deg, frame='fk5')
     try:
         dust_image = IrsaDust.get_images(coordinates, radius=5. * u.deg, image_type='ebv', timeout=60)[0]
-    except:
+    except TimeoutError:
         print("Increasing dust image radius to 10deg")
         dust_image = IrsaDust.get_images(coordinates, radius=10. * u.deg, image_type='ebv', timeout=60)[0]
     y_size, x_size = dust_image[0].data.shape

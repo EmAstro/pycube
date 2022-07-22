@@ -6,7 +6,7 @@ __all__ = ['DataContainer']
 
 
 class DataContainer:
-    r"""Base class to dictat the general behaviour of a datacontainers
+    r"""Base class to dictate the general behavior of a datacontainers
 
     Attributes:
 
@@ -47,14 +47,3 @@ class DataContainer:
             msgs.info('Datacube loaded')
         else:
             raise ValueError('Error in reading in {}'.format(fits_file))
-
-
-
-
-
-
-
-
-
-
-

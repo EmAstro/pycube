@@ -14,6 +14,7 @@ However, its functionality can be translate to a series of different scientific 
    :caption: Getting started
 
    installing
+   versions
 
 .. toctree::
    :maxdepth: 2

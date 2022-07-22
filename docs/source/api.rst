@@ -86,13 +86,13 @@ instrument
 ++++++++++
 
 .. automodule:: pycube.instruments.instrument
-    :member:
+    :members:
 
 vlt_muse
 ++++++++
 
 .. automodule:: pycube.instruments.vlt_muse
-    :member:
+    :members:
 
 pycube.scripts
 --------------
@@ -101,15 +101,21 @@ pycube_collapse
 +++++++++++++++
 
 .. automodule:: pycube.scripts.pycube_collapse
-    :member:
+    :members:
 
 pycube.test
 -----------
+
+test_ancillary
+++++++++++++++
+
+.. automodule:: pycube.test.test_ancillary
+    :members:
 
 test_msgs
 +++++++++
 
 .. automodule:: pycube.test.test_msgs
-    :member:
+    :members:
 
 

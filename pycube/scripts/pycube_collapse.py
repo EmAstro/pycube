@@ -1,6 +1,6 @@
 r"""
-pycube_collapse
-===============
+pycube_collapsed
+================
 Script to collapse a datacontainers along the spectra axis
 
 .. topic:: Inputs:
@@ -15,7 +15,7 @@ import argparse
 from pycube import __version__
 
 EXAMPLES = str(r"""EXAMPLES:""" + """\n""" + """\n""" +
-               r"""pycube_collapse""" + """\n""" +
+               r"""pycube_collapsed""" + """\n""" +
                r""" """)
 
 
