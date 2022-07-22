@@ -1,4 +1,4 @@
-name: pycube
+name: CI Tests
 
 on: [push]
 
