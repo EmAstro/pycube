@@ -26,3 +26,5 @@
 .. _astropy.coordinates.EarthLocation: https://docs.astropy.org/en/stable/api/astropy.coordinates.EarthLocation.html
 .. _astropy.stats.SigmaClip: https://docs.astropy.org/en/stable/api/astropy.stats.SigmaClip.html
 
+.. references
+.. _Farina et al. (2019): https://ui.adsabs.harvard.edu/abs/2019ApJ...887..196F

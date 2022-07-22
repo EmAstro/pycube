@@ -18,6 +18,12 @@ However, its functionality can be translate to a series of different scientific 
 
 .. toctree::
    :maxdepth: 2
+   :caption: Overview:
+
+   psf
+
+.. toctree::
+   :maxdepth: 2
    :caption: Contents:
 
    api
