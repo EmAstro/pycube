@@ -71,10 +71,11 @@ def smooth_chicube(datacontainer,
     print("smooth_chicube: Shrinking cube with given parameters")
     if statcube is None:
         datacube, statcube = datacontainer.get_data_stat()
+        datacube = datacube[min_lambda:max_lambda, :, :]
+        tmp_statcube = statcube[min_lambda:max_lambda, :, :]
     else:
-        datacube = datacontainer
-    datacube = datacube[min_lambda:max_lambda, :, :]
-    statcube = statcube[min_lambda:max_lambda, :, :]
+        datacube = np.copy(datacontainer[min_lambda:max_lambda, :, :])
+        tmp_statcube = np.copy(statcube[min_lambda:max_lambda, :, :])
 
     print("smooth_chicube: Smoothing cube with 3D Gaussian Kernel")
 
@@ -83,9 +84,9 @@ def smooth_chicube(datacontainer,
 
     # Removing nans
     datacopy = np.nan_to_num(datacube, copy=True)
-    statcopy = np.copy(statcube)
-    statcopy[np.isnan(statcube)] = np.nanmax(statcube)
-
+    statcopy = np.copy(tmp_statcube)
+    statcopy[np.isnan(tmp_statcube)] = np.nanmax(tmp_statcube)
+    del tmp_statcube
     # smooth cubes
     data_smooth = ndimage.filters.gaussian_filter(datacopy, data_sigma,
                                                   truncate=truncate)
@@ -588,7 +589,7 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
     return mask_halo_cleaned
 
 
-def make_moments(datacontainer,
+def make_moments(headers,
                  psf_data,
                  sub_stat,
                  mask_halo,
@@ -625,8 +626,8 @@ def make_moments(datacontainer,
 
     Parameters
     ----------
-    datacontainer : IFUcube object
-        data initialized in the cubeClass.py file
+    headers : fits object
+        header file of datacube read in (ex. can use IFUcube.get_primary(), or s_data_headers)
     psf_data : np.array
         PSF subtracted data cube
     sub_stat : np.array
@@ -706,7 +707,7 @@ def make_moments(datacontainer,
     # Defining wavelength range
     z_max, y_max, x_max = np.shape(psf_data)
     channels = manip.channel_array(psf_data, 'z')
-    wave = manip.convert_to_wave(datacontainer, channels)
+    wave = manip.convert_to_wave(headers, channels)
 
     # find central wavelength of the halo:
     # Extract "optimally extracted" spectrum

@@ -178,6 +178,7 @@ def background_cube(datacontainer,
 
 
 def stat_bg(datacontainer,
+            statcube=None,
             min_lambda=None,
             max_lambda=None,
             mask_z=None,
@@ -197,8 +198,10 @@ def stat_bg(datacontainer,
 
     Parameters
     ----------
-    datacontainer : IFUcube object
-        data initialized in cubeClass.py
+    datacontainer : IFUcube object, np.array
+        data initialized in cubeClass.py or 3D data array
+    statcube : np.array, optional
+        3D variance array (default is None)
     min_lambda : int, optional
         min channel to create the image where to detect sources
     max_lambda : int, optional
@@ -241,18 +244,28 @@ def stat_bg(datacontainer,
         a source or is on the edge of the cube. It is 0 if the pixel is considered
         in the background estimate.
     """
-
+    if statcube is None:
+        datacopy = datacontainer.get_data()
+        print("stat_bg: Searching for sources in the collapsed cube")
+        x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacontainer,
+                                                                            min_lambda=min_lambda,
+                                                                            max_lambda=max_lambda,
+                                                                            sig_detect=sig_source_detect,
+                                                                            min_area=min_source_area)
+    else:
+        datacopy = np.copy(datacontainer)
+        statcopy = np.copy(statcube)
+        print("stat_bg: Searching for sources in the collapsed cube")
+        x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacopy,
+                                                                            statcube=statcopy,
+                                                                            min_lambda=min_lambda,
+                                                                            max_lambda=max_lambda,
+                                                                            sig_detect=sig_source_detect,
+                                                                            min_area=min_source_area)
     print("stat_bg: Starting estimate of b/g stats")
-    datacopy = datacontainer.get_data()
 
     data_background = manip.collapse_cube(datacopy, max_lambda=max_lambda, min_lambda=min_lambda, mask_z=mask_z)
 
-    print("stat_bg: Searching for sources in the collapsed cube")
-    x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacontainer,
-                                                                        min_lambda=min_lambda,
-                                                                        max_lambda=max_lambda,
-                                                                        sig_detect=sig_source_detect,
-                                                                        min_area=min_source_area)
     print("stat_bg: Detected {} sources".format(len(x_pos)))
 
     mask_bg_2D = np.zeros_like(data_background)
@@ -363,7 +376,7 @@ def subtract_bg(datacontainer,
    Parameters
    ----------
     datacontainer : IFUcube object
-        data passed through cubeClass.py
+        data initialized in cubeClass.py
     min_lambda : int
         min channel to create the image to detected sources
     max_lambda : int
@@ -408,7 +421,6 @@ def subtract_bg(datacontainer,
         a source or is on the edge of the cube. It is 0 if the pixel is considered
         in the background estimate.
     """
-
     print("subtract_bg: Starting the procedure to subtract the background")
     # Getting spectrum of the background
     bg_average, bg_median, bg_std, bg_var, \
@@ -1072,7 +1084,7 @@ def create_psf(datacontainer,
     y_pos : float
         y-location of the source in pixel
     statcube : np.array, optional
-        variance data array, optional if datacontainer is IFUcube
+        variance data array, optional if headers is IFUcube
     min_lambda : int, optional
         min channel to create collapsed image (default is None)
     max_lambda : int, optional
@@ -1216,6 +1228,7 @@ def clean_psf(datacontainer,
               psf_model,
               x_pos,
               y_pos,
+              statcube=None,
               radius_pos=2.,
               inner_rad=10.,
               outer_rad=15.,
@@ -1237,6 +1250,8 @@ def clean_psf(datacontainer,
         x-location of the source in pixel
     y_pos : float
         y-location of the source in pixel
+    statcube : np.array, optional
+        3D variance array, can be accessed from datacontainer if an IFUcube object is called
     radius_pos : float
         radius where to perform the aperture photometry
         to remove the PSF contribution (default is 2.)
@@ -1257,8 +1272,12 @@ def clean_psf(datacontainer,
     """
 
     print("clean_psf: PSF subtraction on cube")
-    # psf_cube is interchangeable with datacopy
-    psf_cube, statcopy = datacontainer.get_data_stat()
+    if statcube is None:
+        psf_cube, statcopy = datacontainer.get_data_stat()
+    else:
+        psf_cube = np.copy(datacontainer)
+        statcopy = np.copy(statcube)
+
     psf_cube_model = np.zeros_like(psf_cube)
     z_max, y_max, x_max = np.shape(psf_cube)
 
