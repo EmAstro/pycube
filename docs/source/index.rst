@@ -36,6 +36,7 @@ The following people contributed substantially to the development of ``pycube``.
 * `Emanuele Paolo Farina <https://github.com/EmAstro>`_
 * `Ryan Foley <https://github.com/Ryan-Fo>`_
 
+
 Indices and tables
 ==================
 
