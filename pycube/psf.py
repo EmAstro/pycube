@@ -1,13 +1,14 @@
 """ Module to create and subtract PSF model from MUSE cubes
 """
+import numpy as np
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
-import numpy as np
-from scipy.optimize import curve_fit
-
 from pycube.core import manip
 from pycube.core import background
+
+from scipy.optimize import curve_fit
 
 from astropy.stats import sigma_clip
 
@@ -65,7 +66,7 @@ def find_sources(datacontainer, statcube=None,
         directory for all objects found and their values
     """
 
-    # correct collapsing if object passed or two 3D arrays
+    # corrects collapsing if object passed or two 3D arrays
     if statcube is None:
         data_background, var_background = manip.collapse_container(datacontainer, min_lambda=min_lambda,
                                                                    max_lambda=max_lambda, mask_z=mask_z,
@@ -76,10 +77,11 @@ def find_sources(datacontainer, statcube=None,
         statcopy = statcube
         var_background = manip.collapse_cube(statcopy, min_lambda=min_lambda, max_lambda=max_lambda, mask_z=mask_z)
 
+    # background smoothing with seXtractor which utilizes sep
     image_background = background.sextractor_background(data_background, var_background, threshold)
     void_background = data_background - image_background
 
-    # print("find_sources: Searching sources {}-sigma above noise".format(sig_detect))
+    # source finding function utilizing sep
     all_objects = sep.extract(void_background, sig_detect,
                               err=var_background,
                               minarea=min_area,
@@ -98,7 +100,7 @@ def find_sources(datacontainer, statcube=None,
     maj_axis = np.array(all_objects['a'][good_sources])
     min_axis = np.array(all_objects['b'][good_sources])
     angle = np.array(all_objects['theta'][good_sources])
-    # print("find_sources: {} good sources detected".format(np.size(x_pos)))
+
     # preserve memory
     del image_background
     del void_background
@@ -111,8 +113,8 @@ def background_cube(datacontainer,
                     min_source_area=12.,
                     source_mask_size=6.,
                     edges=50):
-    """Creates two datacubes from an original IFUcube. One of the background with removed sources
-    and smoothed background. Another with the associated mask used for removal.
+    """Creates two datacubes from an original IFUcube. One cube is the smoothed background with removed sources.
+    The second is the associated mask used for to create the first cube.
 
     Parameters
     ----------
@@ -139,14 +141,17 @@ def background_cube(datacontainer,
     z_max, y_max, x_max = np.shape(datacopy)
     cube_bg = np.full_like(datacopy, np.nan)
     mask_bg = np.copy(cube_bg)
+
     for index in range(z_max):
         tmpdatacopy = np.copy(datacopy[index, :, :])
+        # source finding in the data cube
         x_pos, y_pos, maj_axis, min_axis, angle, all_objects = find_sources(datacontainer,
                                                                             min_lambda=index,
                                                                             max_lambda=index,
                                                                             sig_detect=sig_source_detect,
                                                                             min_area=min_source_area)
         mask_bg_2D = np.zeros_like(tmpdatacopy)
+        # masking of the sources
         sky_mask = manip.location(tmpdatacopy,
                                   x_position=x_pos, y_position=y_pos,
                                   semi_maj=source_mask_size * maj_axis,
@@ -154,11 +159,11 @@ def background_cube(datacontainer,
                                   theta=angle)
 
         mask_bg_2D[(sky_mask == 1)] = 1
-
+        # masks the edges of the images
         edges_mask = np.ones_like(sky_mask, int)
         edges_mask[int(edges):-int(edges), int(edges):-int(edges)] = 0
         mask_bg_2D[(edges_mask == 1)] = 1
-
+        # applies to the full data cube
         mask_bg_3D = np.broadcast_to((mask_bg_2D == 1), tmpdatacopy.shape)
 
         tmpdatacopy[(mask_bg_3D == 1)] = np.nan
@@ -244,6 +249,7 @@ def stat_bg(datacontainer,
         a source or is on the edge of the cube. It is 0 if the pixel is considered
         in the background estimate.
     """
+
     if statcube is None:
         datacopy = datacontainer.get_data()
         print("stat_bg: Searching for sources in the collapsed cube")
@@ -291,13 +297,14 @@ def stat_bg(datacontainer,
     print("stat_bg: Performing b/g statistic")
     mask_bg_3D = np.broadcast_to((mask_bg_2D == 1), datacopy.shape)
     datacopy[(mask_bg_3D == 1)] = np.nan
+    # performs sigma clipping if specified for high variance / poor masking success
     if sigma_clipping:
         datacopy_clipped = sigma_clip(datacopy, cenfunc=np.nanmean,
                                       stdfunc=np.nanstd, maxiters=10, sigma=5.,
                                       grow=3., axis=(1, 2), masked=True)
         mask_clipped = datacopy_clipped.mask
         datacopy[(mask_clipped == 1)] = np.nan
-
+    # calculates values for output of function
     average_bg, std_bg, median_bg, var_bg, pixels_bg = np.nanmean(datacopy, axis=(1, 2)), \
                                                        np.nanstd(datacopy, axis=(1, 2)), \
                                                        np.nanmedian(datacopy, axis=(1, 2)), \
@@ -421,6 +428,7 @@ def subtract_bg(datacontainer,
         a source or is on the edge of the cube. It is 0 if the pixel is considered
         in the background estimate.
     """
+
     print("subtract_bg: Starting the procedure to subtract the background")
     # Getting spectrum of the background
     bg_average, bg_median, bg_std, bg_var, \
@@ -437,7 +445,7 @@ def subtract_bg(datacontainer,
                                     output=output,
                                     debug=debug,
                                     show_debug=show_debug)
-
+    # data / variance extraction from IFUcube
     datacopy, statcube = datacontainer.get_data_stat()
 
     z_max, y_max, x_max = np.shape(datacopy)
@@ -457,12 +465,12 @@ def subtract_bg(datacontainer,
         bg_mask_3D = np.broadcast_to((bg_mask_2d == 1), statcopy_nan.shape)
         statcopy_nan[(bg_mask_3D == 1)] = np.nan
         # Calculating average variance per channel
-        averageStatBg = np.nanmean(statcopy_nan, axis=(1, 2))
+        average_stat_bg = np.nanmean(statcopy_nan, axis=(1, 2))
 
         del statcopy_nan
         del bg_mask_3D
         # Rescaling cube variance
-        scale_factor = bg_var / averageStatBg
+        scale_factor = bg_var / average_stat_bg
         statcopy = np.copy(statcube)
         for channel in range(0, z_max):
             statcopy[channel, :, :] *= scale_factor[channel]
@@ -611,11 +619,11 @@ def sources_fg(datacube,
 
     # Running force photometry on the detected sources
     print("sources_fg: Aperture photometry on sources with radius {:.4f} pix.".format(rad_norm))
-    fg_flux_cent, fg_err_flux_cent = manip.qap_photometry_no_bg(fg_data_no_bg,
-                                                                statcube,
-                                                                fg_xpos,
-                                                                fg_ypos,
-                                                                obj_rad=rad_norm)
+    fg_flux_cent, fg_err_flux_cent = manip.quick_ap_photometry_no_bg(fg_data_no_bg,
+                                                                     statcube,
+                                                                     fg_xpos,
+                                                                     fg_ypos,
+                                                                     obj_rad=rad_norm)
 
     # Removing sources that are at the edge of the detection at the center
     fg_bright = fg_flux_cent > .5 * sig_source_detect * fg_err_flux_cent
@@ -1117,7 +1125,7 @@ def create_psf(datacontainer,
     """
 
     print("create_psf: Creating PSF model")
-
+    # accounts for IFUcube or two 3D arrays
     if statcube is None:
         if c_type == 'sum':
             print("create_psf: Summing channels")
@@ -1272,6 +1280,7 @@ def clean_psf(datacontainer,
     """
 
     print("clean_psf: PSF subtraction on cube")
+    # accounts for IFUcube or two 3D arrays
     if statcube is None:
         psf_cube, statcopy = datacontainer.get_data_stat()
     else:

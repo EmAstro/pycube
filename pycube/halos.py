@@ -3,7 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import gc
-import astropy
+
 
 from matplotlib.patches import Ellipse
 
@@ -11,6 +11,7 @@ from scipy import ndimage
 from scipy.optimize import curve_fit
 
 from astropy.convolution import convolve
+from astropy.convolution import Gaussian2DKernel
 
 from pycube.core import manip
 
@@ -21,7 +22,7 @@ def smooth_chicube(datacontainer,
                    min_lambda,
                    max_lambda,
                    statcube=None,
-                   a_smooth=1.,
+                   s_smooth=1.,
                    v_smooth=1.,
                    truncate=5.):
     """Given a (PSF subtracted) IFUcube, the macro smooth both
@@ -54,7 +55,7 @@ def smooth_chicube(datacontainer,
         maximum wavelength to collapse data
     statcube : np.array, optional
         variance in 3D array, resulting array from subtract_bg
-    a_smooth : float
+    s_smooth : float
         smooth length in pixel in the spatial direction
     v_smooth : float
         smooth length in pixel in the velocity direction
@@ -69,6 +70,7 @@ def smooth_chicube(datacontainer,
     """
 
     print("smooth_chicube: Shrinking cube with given parameters")
+    # accounts for IFUcube or two 3D arrays
     if statcube is None:
         datacube, statcube = datacontainer.get_data_stat()
         datacube = datacube[min_lambda:max_lambda, :, :]
@@ -78,9 +80,9 @@ def smooth_chicube(datacontainer,
         tmp_statcube = np.copy(statcube[min_lambda:max_lambda, :, :])
 
     print("smooth_chicube: Smoothing cube with 3D Gaussian Kernel")
-
-    data_sigma = (v_smooth, a_smooth, a_smooth)
-    stat_sigma = (v_smooth / np.sqrt(2.), a_smooth / np.sqrt(2.), a_smooth / np.sqrt(2.))
+    # velocity in z, spacial in x,y
+    data_sigma = (v_smooth, s_smooth, s_smooth)
+    stat_sigma = (v_smooth / np.sqrt(2.), s_smooth / np.sqrt(2.), s_smooth / np.sqrt(2.))
 
     # Removing nans
     datacopy = np.nan_to_num(datacube, copy=True)
@@ -93,7 +95,7 @@ def smooth_chicube(datacontainer,
     stat_smooth = ndimage.filters.gaussian_filter(statcopy, stat_sigma,
                                                   truncate=truncate)
 
-    # Cleaning up memory
+    # preserve memory
     del data_sigma
     del stat_sigma
     gc.collect()
@@ -119,9 +121,9 @@ def halo_mask(chi_cube,
     macro, after masking some regions, performs a friends of friends
     search for connected pixels above a certain threshold in S/N.
     The first step is to identify the most significant voxel in
-    proximity of the quasar position (given as x_pos, y_pos, z_pos).
+    proximity to the quasar position (given as x_pos, y_pos, z_pos).
     The code assumes that the position of the extended halo is known
-    and so started to create the mask of connected pixels from this
+    and proceeds to create the mask of connected pixels from this
     point and from the most significant voxel within a spherical
     radius of 3.*rad_bad_pix from (x_pos, y_pos, z_pos).
     From there the macro searches for neighbor pixels that are above
@@ -298,6 +300,8 @@ def halo_mask(chi_cube,
         if show_debug:
             plt.show()
         plt.close()
+
+        # preserve memory
         del chi_cube_hist
         del chi_cube_edges
         del gauss_best
@@ -360,7 +364,7 @@ def halo_mask(chi_cube,
             x_mask_min, x_mask_max = int(xMaskTemp - r_connect), int(xMaskTemp + r_connect)
             temp_halo_mask[z_mask_min:z_mask_max, y_mask_min:y_mask_max, x_mask_min:x_mask_max] = 1
 
-        # check that voxels in maskHaloTemp are above the threshold
+        # check that voxels in temp_mask_halo are above the threshold
         new_chicopy = np.copy(chi_cube)
         new_chicopy[~np.isfinite(new_chicopy)] = 0.
         new_chicopy[(chi_cube_mask == 1)] = 0.
@@ -375,7 +379,7 @@ def halo_mask(chi_cube,
 
     if debug:
         print("halo_mask: Creating debug image")
-        print("          Plotting Channel {} where the most significant voxel is.".format(z_max_chi))
+        print("          Plotting channel {} where the most significant voxel is.".format(z_max_chi))
         print("          The location of this voxel is marked with a red circle")
         print("          The position of the quasar is in blue")
 
@@ -452,7 +456,7 @@ def halo_mask(chi_cube,
         del mask_halo_min_z
         del mask_halo_max_z
 
-    # Clearing up memory
+    # preserve memory
     del bad_mask
     del new_chicopy
     del chicopy
@@ -476,7 +480,7 @@ def spectral_mask_halo(mask_halo):
     mask_halo_2D : np.array
         2D mask of the halo location (collapsed along the
         z-axis).
-    maskHaloMinZ, maskHaloMaxZ : int
+    mask_halo_min_z, mask_halo_max_z : int
         min and max channel where the halo is detected along
         the z-axis
     """
@@ -509,7 +513,7 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
     """
     Given the halo mask, the macro performs some quality
     check:
-    * If a spatial pixel (x,y) has less than delta_z_min consecutive voxels identified along the z-axis, this will
+    * If a spatial pixel (x,y) has less than delta_z_min consecutive voxels identified along the z-axis, it will
     be removed from the mask
     * If the total number of voxels is less than min_vox the halo is considered as not detected and the mask is cleaned.
 
@@ -589,7 +593,7 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
     return mask_halo_cleaned
 
 
-def make_moments(headers,
+def make_moments(datacontainer,
                  psf_data,
                  sub_stat,
                  mask_halo,
@@ -626,7 +630,7 @@ def make_moments(headers,
 
     Parameters
     ----------
-    headers : fits object
+    datacontainer : fits object
         header file of datacube read in (ex. can use IFUcube.get_primary(), or s_data_headers)
     psf_data : np.array
         PSF subtracted data cube
@@ -650,15 +654,13 @@ def make_moments(headers,
     Returns
     -------
     mom0, mom1, mom2 : np.array
-        moment maps in 2D arrays. Units for mom0 are
-        of fluxes, while for mom1 and mom2 are of
-        velocity
-    centralWave : float
-        wavelength in Ang. from which to the velocity shifts
+        moment maps in 2D arrays. Units for mom0 is
+        flux, while units of mom1 and mom2 is velocity
+    central_wave : float
+        wavelength in Ang. from which the velocity shifts
         are calculated. It is equal to the input wavelength
         if not set to None.
     """
-
     print("make_moments: estimating halo moments")
 
     if np.nansum(mask_halo) < 3:
@@ -675,12 +677,12 @@ def make_moments(headers,
         print("make_moments: masking {} NaNs with a {} spatial pixel Gaussian Kernel".format(
             np.nansum(~np.isfinite(tmp_datacopy)), gkernel_radius))
         print("             the total number of voxels is {}".format(np.size(tmp_datacopy)))
-        gkernel = astropy.convolution.Gaussian2DKernel(gkernel_radius)
+        gkernel = Gaussian2DKernel(gkernel_radius)
         z_max, y_max, x_max = np.shape(psf_data)
         for channel in np.arange(0, z_max):
             data_channel = np.copy(tmp_datacopy[channel, :, :])
-            # correct for nan with blurred images
-            blur_channel = astropy.convolution.convolve(np.copy(psf_data[channel, :, :]), gkernel)
+            # correction for nan with blurred images
+            blur_channel = convolve(np.copy(psf_data[channel, :, :]), gkernel)
             data_channel[np.logical_not(np.isfinite(data_channel))] = blur_channel[
                 np.logical_not(np.isfinite(data_channel))]
             tmp_datacopy[channel, :, :] = data_channel[:, :]
@@ -707,7 +709,8 @@ def make_moments(headers,
     # Defining wavelength range
     z_max, y_max, x_max = np.shape(psf_data)
     channels = manip.channel_array(psf_data, 'z')
-    wave = manip.convert_to_wave(headers, channels)
+    data_headers = datacontainer.get_data_header()
+    wave = data_headers['CRVAL3'] + (np.array(channels) * data_headers['CD3_3'])
 
     # find central wavelength of the halo:
     # Extract "optimally extracted" spectrum
@@ -789,7 +792,7 @@ def make_moments(headers,
         ax_mom0.set_ylim(bottom=min_y_mask, top=max_y_mask)
         ax_mom0.set_xlabel(r"X [Pixels]", size=30)
         ax_mom0.set_ylabel(r"Y [Pixels]", size=30)
-        cbMom0 = plt.colorbar(img_mom0, ax=ax_mom0, shrink=0.5)
+        cb_mom0 = plt.colorbar(img_mom0, ax=ax_mom0, shrink=0.5)
 
         img_mom1 = ax_mom1.imshow(mom1,
                                   cmap="Greys", origin="lower",
@@ -799,7 +802,7 @@ def make_moments(headers,
         ax_mom1.set_ylim(bottom=min_y_mask, top=max_y_mask)
         ax_mom1.set_xlabel(r"X [Pixels]", size=30)
         ax_mom1.set_ylabel(r"Y [Pixels]", size=30)
-        cbMom1 = plt.colorbar(img_mom1, ax=ax_mom1, shrink=0.5)
+        cb_mom1 = plt.colorbar(img_mom1, ax=ax_mom1, shrink=0.5)
 
         img_mom2 = ax_mom2.imshow(mom2,
                                   cmap="Greys", origin="lower",
@@ -809,7 +812,7 @@ def make_moments(headers,
         ax_mom2.set_ylim(bottom=min_y_mask, top=max_y_mask)
         ax_mom2.set_xlabel(r"X [Pixels]", size=30)
         ax_mom2.set_ylabel(r"Y [Pixels]", size=30)
-        cbMom2 = plt.colorbar(img_mom2, ax=ax_mom2, shrink=0.5)
+        cb_mom2 = plt.colorbar(img_mom2, ax=ax_mom2, shrink=0.5)
 
         plt.tight_layout()
         if show_debug:

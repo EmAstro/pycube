@@ -13,7 +13,7 @@ from photutils import CircularAperture
 from photutils import CircularAnnulus
 from photutils import aperture_photometry
 from photutils import EllipticalAperture
-
+from photutils import centroids
 from astroquery.irsa_dust import IrsaDust
 
 
@@ -50,7 +50,7 @@ def nice_plot():
 
 
 def find_sigma(data):
-    """Simple expression to calculate Sigma quickly. Taking square root of median value of an array of values.
+    """Simple expression to calculate Sigma quickly. Taking square root of the median value of an array.
 
     Parameters
     ----------
@@ -160,16 +160,17 @@ def collapse_cube(datacube,
                   mask_z=None):
     """ Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
     If mask_z is specified, the function will remove all channels masked as 1.
+
     Parameters
     ----------
     datacube : np.array
-        3D data file
+        3D data cube
     min_lambda : int, optional
-        Minimum wavelength
+        Minimum wavelength to collapse file
     max_lambda : int, optional
-        Maximum wavelength
+        Maximum wavelength to collapse file
     mask_z : np.array, optional
-        range of z-axis values that the user can mask in the datacube
+        range of z-axis values to mask when collapsing
 
     Returns
     -------
@@ -179,6 +180,7 @@ def collapse_cube(datacube,
 
     datacopy = np.copy(datacube)
     z_max, y_max, x_max = np.shape(datacopy)
+
     # Checks and resets if outside boundaries of z
     if max_lambda is None or max_lambda > z_max:
         max_lambda = z_max
@@ -189,6 +191,7 @@ def collapse_cube(datacube,
         print("collapse_cube : Invalid / unspecified minimum wavelength. Min value is set to 0")
     if mask_z is not None:
         datacopy[mask_z, :, :] = np.nan
+
     # Sums values between specifications, ignoring NaNs
     col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
     del datacopy
@@ -210,21 +213,20 @@ def collapse_mean_cube(datacube,
     Parameters
     ----------
     datacube : np.array
-        3D data file to be collapsed
+        3D data file
     statcube : np.array
-        3D variance file to be collapsed
+        3D variance file
     min_lambda : int
         minimum wavelength to collapse cube
     max_lambda : int
         maximum wavelength to collapse cube
     mask_z : np.array
-        if specified, channels masked as 1 will be removed
+        if specified, channels masked as 1 will be removed when collapsed
 
     Returns
     -------
     np.arrays
-        collapsed data and collapsed variance cubes
-
+        2D collapsed and averaged data and variance cubes
     """
 
     temp_collapsed_data = collapse_cube(datacube, min_lambda,
@@ -282,7 +284,7 @@ def collapse_container(datacontainer,
     np.array
         Condensed 2D array of 3D file.
     """
-
+    # pulls information from IFU object
     datacopy, statcopy = datacontainer.get_data_stat()
     z_max, y_max, x_max = np.shape(datacopy)
 
@@ -303,6 +305,7 @@ def collapse_container(datacontainer,
             statcopy[mask_z, :, :] = np.nan
         col_statcube = np.nansum(statcopy[min_lambda:max_lambda, :, :], axis=0)
     else:
+        # generation of variance stemming from dataset
         med_cube = np.nanmedian(col_datacube)
         std_cube = np.nanstd(col_datacube - med_cube)
         tmp_col_statcube =\
@@ -367,7 +370,7 @@ def collapse_mean_container(datacontainer,
                                                    returned=True)
     collapsed_stat = 1. / collapsed_weights
 
-    # Deleting temporary cubes to clear up memory
+    # preserve memory
     del temp_collapsed_data
     del temp_collapsed_stat
     del collapsed_weights
@@ -402,6 +405,7 @@ def location(data_flat, x_position=None, y_position=None,
         Mask of 2D array of with user defined stellar objects
         denoted as 1 with all other elements 0
     """
+
     mask_array = np.zeros_like(data_flat)
     mask_shape = np.shape(data_flat)
     x_mask, y_mask = mask_shape
@@ -415,6 +419,7 @@ def location(data_flat, x_position=None, y_position=None,
 
     if x_position is None:
         print("location: Please specify location of the object")
+        return mask_array  # returned mask of zeros
     elif type(x_position) is int or type(x_position) is float:
         print("location: single source identified")
         theta_rad = (theta * np.pi) / 180.  # converts angle degrees to radians
@@ -534,9 +539,9 @@ def small_cube(datacontainer,
     s_statcopy : np.array
         variance in a 3D array trim from min_lambda to max_lambda
     """
-
-    datacopy, statcopy = datacontainer.get_data_stat()
+    # assignment of variables to all information from IFU cube
     primary_headers = datacontainer.get_primary()
+    datacopy, statcopy = datacontainer.get_data_stat()
     data_headers, stat_headers = datacontainer.get_headers()
     # Check for the size of the cube
     z_max, y_max, x_max = np.shape(datacopy)
@@ -574,7 +579,7 @@ def small_cube(datacontainer,
     if max_lambda > (z_max + 1):
         print("small_cube: max_lambda is outside the cube size. Set to {}".format(int(z_max)))
         max_lambda = int(z_max)
-
+    # updates CRVAL3 of new data cube
     small_cube_CRVAL3 = float(np.array(data_headers['CRVAL3'] + (np.array(min_lambda) * data_headers['CD3_3'])))
     print("small_cube: Creating smaller cube")
     print("           The old pivot wavelength was {}".format(data_headers['CRVAL3']))
@@ -609,7 +614,7 @@ def dust_correction(datacontainer):
     Returns
     -------
     reddata, redstat : np.array
-        dust-corrected reddened cubes for data and variance
+        galactic dust corrected 3D arrays for data and variance
     """
     reddata, redstat = datacontainer.get_data_stat()
     channel_range = channel_array(reddata, 'z')  # creates channel along z-axis
@@ -739,11 +744,11 @@ def quick_ap_photometry(datacopy,
     return obj_flux, obj_err_flux, ave_flux
 
 
-def qap_photometry_no_bg(datacopy,
-                         statcopy,
-                         x_pos,
-                         y_pos,
-                         obj_rad=2.):
+def quick_ap_photometry_no_bg(datacopy,
+                              statcopy,
+                              x_pos,
+                              y_pos,
+                              obj_rad=2.):
     """Performing quick circular aperture photometry on an image
     without background subtraction
 
@@ -765,10 +770,11 @@ def qap_photometry_no_bg(datacopy,
     -------
     flux_obj, err_flux_obj : np.arrays
         fluxes and errors of the sources derived from datacopy
-        and statcube
+        and statcopy
     """
-    print("quickApPhotmetryNoBg: Performing aperture photometry")
 
+    print("quick_ap_photometry_no_bg: Performing aperture photometry")
+    # creates arrays of position values regardless of quantity
     if np.size(x_pos) == 1:
         x_object = np.array([x_pos])
         y_object = np.array([y_pos])
@@ -849,7 +855,8 @@ def q_spectrum(datacontainer,
     spec_flux_bg : np.array
         background spectral flux
     """
-    # lets user pass an IFUcube object or two 3D arrays
+
+    # allows assignment of an IFUcube object or two 3D arrays
     if statcube is None:
         datacopy, statcopy = datacontainer.get_data_stat()
     else:
@@ -861,6 +868,7 @@ def q_spectrum(datacontainer,
     else:
         print("q_spectrum: Using void_mask")
 
+    # creating empty lists
     spec_ap_phot = []
     spec_var_ap_phot = []
     spec_flux_bg = []
@@ -907,7 +915,8 @@ def q_spectrum_no_bg(datacontainer,
                      y_pos,
                      statcube=None,
                      radius_pos=2.):
-    """Performing quick spectrum extraction from a circular aperture on a cube.
+    """Performing quick spectrum extraction from a circular aperture on a cube
+    without calculating background spectral flux
 
     Parameters
     ----------
@@ -932,12 +941,14 @@ def q_spectrum_no_bg(datacontainer,
     """
 
     print("q_spectrum_no_bg: Extracting spectrum from the cube")
-    # lets user pass an IFUcube object or two 3D arrays
+    # allows IFUcube object assignment or two 3D arrays
     if statcube is None:
         datacopy, statcopy = datacontainer.get_data_stat()
     else:
         datacopy = np.copy(datacontainer)
         statcopy = np.copy(statcube)
+
+    # creating empty lists
     spec_ap_phot = []
     spec_var_ap_phot = []
 
@@ -985,6 +996,8 @@ def q_spectrum_no_bg_mask(datacontainer,
     err_flux_obj :
         sigma of variance
     """
+
+    # allows IFUcube object assignment or two 3D arrays
     if statcube is None:
         datacopy, statcopy = datacontainer.get_data_stat()
     else:
@@ -1073,7 +1086,7 @@ def stat_fullcube(datacube,
     print("              median  = {:+0.3f}".format(cube_median))
     print("              sigma   = {:+0.3f}".format(cube_std))
 
-    # Cleaning up memory
+    # preserve memory
     del datacopy
 
     return cube_average, cube_median, cube_std
@@ -1160,11 +1173,10 @@ def pixel_dist(z_pos1, y_pos1, x_pos1,
     return dist
 
 
-def object_coord(datacontainer, ra, dec):
-    """Reads in IFUcube and user input of an object in RA and DEC.
-    Returns to user the converted X, Y pixel position of the object
-    Utilizes Header data in the fits file of the IFUcube entered.
-    (specific)
+def object_coord(datacontainer, ra, dec, radius):
+    """Reads in IFUcube and user input of an object in RA and DEC as well as a search radius.
+    RA and DEC specify where to extend radius to search for pixel value of center of object.
+    Utilizes Photutils centroid_sources and header data to convert RA and DEC into pixel values.
 
     Parameters
     ----------
@@ -1174,6 +1186,8 @@ def object_coord(datacontainer, ra, dec):
         Right ascension of object in degrees
     dec : float
         Declination of object in degrees
+    radius : int, float
+        pixel radius value to search for center of specified object
 
     Returns
     -------
@@ -1181,8 +1195,13 @@ def object_coord(datacontainer, ra, dec):
         x_pos X pixel coordinate of object in datacube
         y_pos Y pixel coordinate of object in datacube
     """
-    headers = datacontainer.get_data_header()
 
+    headers = datacontainer.get_data_header()
+    datacopy = datacontainer.get_data()
+    image_data = np.nansum(datacopy[:, :, :], axis=0)  # creates 2D image from dataset and deletes copy to save memory
+    del datacopy
+
+    # utilizes header information for conversions
     ra_ref = headers['CRVAL1']
     ra_conversion = headers['CD1_1']
     x_ref = headers['CRPIX1']
@@ -1193,7 +1212,13 @@ def object_coord(datacontainer, ra, dec):
 
     ra_dif = ra - ra_ref
     dec_dif = dec - dec_ref
-    x_pos = (ra_dif / ra_conversion) + x_ref
-    y_pos = (dec_dif / dec_conversion) + y_ref
+    x_pix = np.array((ra_dif / ra_conversion) + x_ref)
+    y_pix = np.array((dec_dif / dec_conversion) + y_ref)
 
+    # isolates position fof the center of the object
+    x_pos, y_pos = centroids.centroid_sources(image_data, x_pix, y_pix,
+                                              box_size=radius)
+    # converts back to float for returned coordinates
+    x_pos = float(x_pos)
+    y_pos = float(y_pos)
     return x_pos, y_pos
