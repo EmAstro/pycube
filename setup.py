@@ -9,8 +9,8 @@ def get_scripts():
     r"""Grab scripts in the bin directory and in the sub-folder.
     """
     scripts = []
-    if os.path.isdir('bin'):
-        scripts = [script_name for script_name in glob.glob(os.path.join('bin', '*'))
+    if os.path.isdir('pycube/bin'):
+        scripts = [script_name for script_name in glob.glob(os.path.join('pycube/bin', '*'))
                    if not os.path.basename(script_name).endswith('.rst') and not os.path.isdir(script_name)]
     return scripts
 
@@ -27,7 +27,8 @@ def get_requirements():
 
 NAME = 'pycube'
 VERSION = '0.0.0dev'
-AUTHOR = 'Ema'
+AUTHOR = 'Ryan'
+
 
 
 def run_setup(scripts, packages, install_requires):
@@ -74,4 +75,4 @@ if __name__ == '__main__':
     # Collate the dependencies based on the system text file
     install_requires = get_requirements()
     # Run setup from setuptools
-run_setup(scripts, packages, install_requires)
+    run_setup(scripts, packages, install_requires)

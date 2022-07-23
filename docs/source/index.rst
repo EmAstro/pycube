@@ -6,9 +6,27 @@
 Welcome to pycube's documentation!
 ==================================
 
+pycube is a work in progress package created to handle specifically the study of the environment of high redshift sources.
+However, its functionality can be translate to a series of different scientific problems.
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Getting started
+
+   installing
+   versions
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Overview:
+
+   psf
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
+   api
 
 
 
