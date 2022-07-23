@@ -11,7 +11,7 @@ However, its functionality can be translate to a series of different scientific 
 
 .. toctree::
    :maxdepth: 1
-   :caption: Getting started
+   :caption: Getting started:
 
    installing
    versions
@@ -28,7 +28,13 @@ However, its functionality can be translate to a series of different scientific 
 
    api
 
+Contributors
+============
 
+The following people contributed substantially to the development of ``pycube``.
+
+* `Emanuele Paolo Farina <https://github.com/EmAstro>`_
+* `Ryan Foley <https://github.com/Ryan-Fo>`_
 
 Indices and tables
 ==================
