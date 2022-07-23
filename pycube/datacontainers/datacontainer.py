@@ -6,7 +6,7 @@ __all__ = ['DataContainer']
 
 
 class DataContainer:
-    r"""Base class to dictate the general behavior of a datacontainers
+    r"""Base class to dictate the general behavior of a data container
 
     Attributes:
 

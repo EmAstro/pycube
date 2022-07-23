@@ -30,7 +30,6 @@ VERSION = '0.0.0dev'
 AUTHOR = 'Ryan'
 
 
-
 def run_setup(scripts, packages, install_requires):
     r"""Run the setup
     """
