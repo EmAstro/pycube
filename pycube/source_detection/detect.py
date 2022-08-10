@@ -2,13 +2,11 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import shutil
-from mpdaf.obj import Cube, CubeList,Image, WCS, Spectrum,WaveCoord
+import astropy.units as u
+from mpdaf.obj import Cube, WCS, Spectrum,WaveCoord
 from astropy.io import fits
 from astropy import wcs
-import astropy.units as u
-from photutils import aperture_photometry
-from photutils import CircularAperture
-from photutils import CircularAnnulus
+from photutils import aperture_photometry,CircularAperture,CircularAnnulus
 from scipy import ndimage
 
 
