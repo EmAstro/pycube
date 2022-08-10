@@ -67,7 +67,7 @@ def find_sigma(data):
 
 def channel_array(datacube,
                   channel):
-    """Given a 3D data cube, and a channel (x,y,z), creates a  numpy array of values of channel range
+    """Given a 3D data cube, and a channel (x,y,z), creates a numpy array of values of channel range
 
     Parameters
     ----------
