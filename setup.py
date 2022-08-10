@@ -26,7 +26,7 @@ def get_requirements():
 
 
 NAME = 'pycube'
-VERSION = '0.0.0dev'
+VERSION = '0.0.1dev'
 AUTHOR = 'Ryan'
 
 
@@ -47,7 +47,7 @@ def run_setup(scripts, packages, install_requires):
           include_package_data=True,
           scripts=scripts,
           install_requires=install_requires,
-          requires=['Python (>3.10)'],
+          requires=['Python (>3.9)'],
           zip_safe=False,
           use_2to3=False,
           classifiers=[
@@ -57,7 +57,7 @@ def run_setup(scripts, packages, install_requires):
               'Natural Language :: English',
               'Operating System :: OS Independent',
               'Programming Language :: Python',
-              'Programming Language :: Python :: 3.10',
+              'Programming Language :: Python :: 3.9',
               'Topic :: Scientific/Engineering :: Astronomy',
               'Topic :: Software Development :: Libraries :: Python Modules',
               'Topic :: Software Development :: User Interfaces'

@@ -1,6 +1,10 @@
+import numpy as np
+
 from astropy.io import fits
 from pycube.ancillary import checks
 from pycube import msgs
+
+from pycube.instruments import vlt_muse
 
 __all__ = ['DataContainer']
 
@@ -47,3 +51,40 @@ class DataContainer:
             msgs.info('Datacube loaded')
         else:
             raise ValueError('Error in reading in {}'.format(fits_file))
+        if self.instrument is None:
+            # try to get the instrument from the primary header
+            if 'INSTRUME' in self.hdul[0].header:
+                if self.hdul[0].header['INSTRUME'] == 'MUSE':
+                    self.instrument = vlt_muse
+                    msgs.info('Instrument set to vlt_muse')
+                else:
+                    msgs.warning('Instrument {} not initialized'.format(self.hdul[0].header['INSTRUME']))
+            else:
+                msgs.warning('Instrument not defined')
+
+    def get_data_hdu(self, data_extension=None):
+        """Get the HDU for the data extension
+
+        """
+        if data_extension is not None:
+            return self.hdul[data_extension]
+        elif self.instrument is not None:
+            return self.hdul[self.instrument.data_extension]
+        else:
+            msgs.warning('data_extension needs to be specified')
+            return None
+
+    def get_data(self, data_extension=None, copy=True):
+        """Get the data for the data extension
+
+        """
+        if copy:
+            return np.copy(self.get_data_hdu(data_extension=data_extension).data)
+        else:
+            return self.get_data_hdu(data_extension=data_extension).data
+
+    def get_data_header(self, data_extension=None):
+        """Get the header for the data extension
+
+        """
+        return self.get_data_hdu(data_extension=data_extension).header
