@@ -16,4 +16,3 @@ class GaussianSource(FakeSource):
     """
     def __init__(self, location=None, spectral_shape=None):
         super().__init__(location=location, spatial_shape=models.Gaussian2D(), spectral_shape=spectral_shape)
-
