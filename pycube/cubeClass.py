@@ -102,6 +102,12 @@ class IfuCube:
         z_max, y_max, x_max = np.shape(self.get_data())
         return z_max, y_max, x_max
 
+    def get_instrument(self):
+        return self.instrument()
+
+    def get_image(self):
+        return self.image()
+
     def get_background(self,
                        sig_source_detection=5.0, min_source_area=16.,
                        source_mask_size=6., edges=60):
