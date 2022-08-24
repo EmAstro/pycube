@@ -88,3 +88,36 @@ class DataContainer:
 
         """
         return self.get_data_hdu(data_extension=data_extension).header
+
+    def get_error(self, error_extension=None, copy=True):
+        """Get the data for the error extension
+
+        """
+        if copy:
+            return np.copy(self.get_data_hdu(error_extension=error_extension).data)
+        else:
+            return self.get_data_hdu(error_extension=error_extension).data
+
+    def get_error_hdu(self, error_extension=None):
+        """Get the HDU for the data extension
+
+        """
+        if error_extension is not None:
+            return self.hdul[error_extension]
+        elif self.instrument is not None:
+            return self.hdul[self.instrument.error_extension]
+        else:
+            msgs.warning('error_extension needs to be specified')
+            return None
+
+    def get_error_header(self, error_extension=None):
+        """Get the header for the data extension
+
+        """
+        return self.get_data_hdu(error_extension=error_extension).header
+
+    def copy(self):
+        """Returns a shallow copy
+        """
+        return DataContainer(hdul=self.hdul.copy(), fits_file=self.fits_file, instrument=self.instrument)
+

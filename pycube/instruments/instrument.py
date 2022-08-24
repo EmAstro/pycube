@@ -18,7 +18,8 @@ class Instrument:
     def __init__(self):
         self.primary_extension = None
         self.data_extension = None
-        self.sigma_extension = None
+        self.error_extension = None
+        self.error_type = None
 
     @property
     def data_extension(self):
@@ -29,12 +30,12 @@ class Instrument:
         self._data_extension = data_extension
 
     @property
-    def sigma_extension(self):
-        return self._sigma_extension
+    def error_extension(self):
+        return self._error_extension
 
-    @sigma_extension.setter
-    def sigma_extension(self, sigma_extension):
-        self._sigma_extension = sigma_extension
+    @error_extension.setter
+    def error_extension(self, error_extension):
+        self._error_extension = error_extension
 
     @property
     def primary_extension(self):
@@ -43,3 +44,11 @@ class Instrument:
     @primary_extension.setter
     def primary_extension(self, primary_extension):
         self._primary_extension = primary_extension
+
+    @property
+    def error_type(self):
+        return self._error_type
+
+    @error_type.setter
+    def error_type(self, error_type):
+        self._error_type = error_type
