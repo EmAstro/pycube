@@ -19,7 +19,7 @@ def detect(zap,cat):
     r = 0.0002222
 
     print("Creating Main Directory in Desktop")
-    directory = "Detection"
+    directory = "Detection_pycube"
     desktop_path = os.path.expanduser('~') + '/Desktop'
     dir_path = os.path.join(desktop_path, directory)
     if not os.path.exists(dir_path):
