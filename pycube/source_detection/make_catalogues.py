@@ -3,14 +3,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import shutil
 import astropy.units as u
-from mpdaf.obj import Cube, WCS, Spectrum,WaveCoord
+from mpdaf.obj import Cube, Spectrum,WaveCoord
 from astropy.io import fits
 from astropy import wcs
 from photutils import aperture_photometry,CircularAperture,CircularAnnulus
 from scipy import ndimage
-
+import warnings
 
 def detect(zap,cat):
+    np.seterr(divide='ignore',invalid='ignore') #ignores true divide error
+    warnings.filterwarnings('ignore')           #ignore warnings
     f = fits.open(zap)
     hdul = fits.open(cat)  # LSDcat CATALOGUE
     cube = Cube(zap)
