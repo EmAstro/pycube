@@ -601,6 +601,7 @@ def small_cube(datacontainer,
 
 
 def small_IFU(datacontainer,
+              image,
               min_lambda=None,
               max_lambda=None):
     """Creates a smaller IFU datacube utilizing function of small cube. Benefit of function is to return a full IFUcube
@@ -611,6 +612,8 @@ def small_IFU(datacontainer,
     ----------
     datacontainer : IFUcube Object
         dataset initialized in cubeClass
+    image : str
+        pathway to image used for datacontainer
     min_lambda : int, optional
         minimum wavelength (z value) to create smaller data set from
     max_lambda : int, optional
@@ -628,9 +631,7 @@ def small_IFU(datacontainer,
     primary = fits.PrimaryHDU()
     data = fits.ImageHDU(s_datacopy, s_data_headers, name='DATA')
     stat = fits.ImageHDU(s_statcopy, s_stat_headers, name='STAT')
-
-    smallIFU = cubeClass.IfuCube(datacontainer.get_image(),
-                                 instrument=datacontainer.get_instrument(),
+    smallIFU = cubeClass.IfuCube(image,
                                  primary=primary,
                                  data=data,
                                  stat=stat)
