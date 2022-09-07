@@ -5,6 +5,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 
+from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 import astropy.coordinates as coord
 import astropy.units as u
@@ -16,6 +17,7 @@ from photutils import EllipticalAperture
 from photutils import centroids
 from astroquery.irsa_dust import IrsaDust
 
+from pycube import cubeClass
 
 def nice_plot():
     """Universal plotting parameters in place for debug outputs of functions
@@ -596,6 +598,42 @@ def small_cube(datacontainer,
     s_statcopy = np.copy(statcopy[min_lambda:max_lambda, :, :])
 
     return s_primary_headers, s_data_headers, s_datacopy, s_stat_headers, s_statcopy
+
+
+def small_IFU(datacontainer,
+              image,
+              min_lambda=None,
+              max_lambda=None):
+    """Creates a smaller IFU datacube utilizing function of small cube. Benefit of function is to return a full IFUcube
+    object with corrected shrunken parameters. Helps to save memory -> computation time when dealing with large
+    amounts of data.
+    Parameters
+    ----------
+    datacontainer : IFUcube Object
+        dataset initialized in cubeClass
+    image : str
+        pathway to image used for datacontainer
+    min_lambda : int, optional
+        minimum wavelength (z value) to create smaller data set from
+    max_lambda : int, optional
+        maximum wavelength (z value) to create smaller data set from
+    Returns
+    -------
+    SmallIFU : IFUcube Object
+        shrunken and parameter corrected datacube
+    """
+    s_primary_headers, s_data_headers, s_datacopy, s_stat_headers, s_statcopy = small_cube(datacontainer,
+                                                                                           min_lambda,
+                                                                                           max_lambda)
+
+    primary = fits.PrimaryHDU()
+    data = fits.ImageHDU(s_datacopy, s_data_headers, name='DATA')
+    stat = fits.ImageHDU(s_statcopy, s_stat_headers, name='STAT')
+    smallIFU = cubeClass.IfuCube(image,
+                                 primary=primary,
+                                 data=data,
+                                 stat=stat)
+    return smallIFU
 
 
 def dust_correction(datacontainer):
