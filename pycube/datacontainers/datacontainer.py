@@ -118,6 +118,7 @@ class DataContainer:
 
     def copy(self):
         """Returns a shallow copy
+
         """
         return DataContainer(hdul=self.hdul.copy(), fits_file=self.fits_file, instrument=self.instrument)
 
