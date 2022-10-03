@@ -74,7 +74,7 @@ class IfuCube:
         self.hdul = fits.open(self.image, memmap=True)
         self.primary = self.hdul[self.instrument.primary_extension]
         self.data = self.hdul[self.instrument.data_extension]
-        self.stat = self.hdul[self.instrument.sigma_extension]
+        self.stat = self.hdul[self.instrument.error_extension]
 
     # functions used for pulling IFUcube information within module functions
     def get_primary(self):
