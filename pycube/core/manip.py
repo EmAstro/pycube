@@ -19,11 +19,12 @@ from astroquery.irsa_dust import IrsaDust
 
 from pycube import cubeClass
 
+
 def nice_plot():
-    """Universal plotting parameters in place for debug outputs of functions
+    """OBSOLETE
     """
 
-    print("nice_plot: Setting rcParams")
+    print("DO NOT USE THIS")
     plt.rcParams["xtick.top"] = True
     plt.rcParams["ytick.right"] = True
     plt.rcParams["xtick.minor.visible"] = True
@@ -122,7 +123,7 @@ def convert_to_wave(datacontainer,
     np.array
         An array of wavelength values for given channel
     """
-
+    print('DO NOT USE THIS')
     data_headers = datacontainer.get_data_header()
     data_channel_range = channel_array(datacube, channels)
     data_wave = data_headers['CRVAL3'] + (np.array(data_channel_range) * data_headers['CD3_3'])

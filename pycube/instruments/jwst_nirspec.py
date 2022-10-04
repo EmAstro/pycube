@@ -9,5 +9,8 @@ class JWSTNIRSpec(instrument.Instrument):
         self.error_type = 'Sigma'
         self.telescope = 'JWST'  # ToDo this will be made a class
         self.name = 'NIRSpec'
-
+        self.wavelength_cards = {'CRVAL3': 'CRVAL3',
+                                 'CRPIX3': 'CRPIX3',
+                                 'CDELT3': 'CDELT3',
+                                 'CUNIT3': 'CUNIT3'}
 

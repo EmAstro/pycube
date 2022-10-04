@@ -5,6 +5,6 @@ from pycube.instruments import jwst_nirspec
 
 # Import and instantiate vlt_muse
 vlt_muse = vlt_muse.VLTMuse()
-jwst_nirspec = jwst_nirspec.JWSTNirspec()
+jwst_nirspec = jwst_nirspec.JWSTNIRSpec()
 
 # Additional imports and instantiation will follow for other instruments

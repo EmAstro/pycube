@@ -9,5 +9,8 @@ class VLTMuse(instrument.Instrument):
         self.error_type = 'Variance'
         self.telescope = 'VLT'  # ToDo this will be made a class
         self.name = 'MUSE'
-
+        self.wavelength_cards = {'CRVAL3': 'CRVAL3',
+                                 'CRPIX3': 'CRPIX3',
+                                 'CDELT3': 'CD3_3',
+                                 'CUNIT3': 'CUNIT3'}
 
