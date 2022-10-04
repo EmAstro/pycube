@@ -19,7 +19,9 @@ class DataCube(datacontainer.DataContainer):
                      self.get_channel_vector()*self.get_data_header(header_card=
                                                                     self.instrument.wavelength_cards['CDELT3'])
         if with_units:
-            wavelength = wavelength * units.to_astropy_units(self.get_data_header(header_card='CUNIT3'))
+            wavelength = wavelength * \
+                         units.to_astropy_units(self.get_data_header(header_card=
+                                                                     self.instrument.wavelength_cards['CUNIT3']))
         return wavelength
 
     def get_channel_vector(self):
