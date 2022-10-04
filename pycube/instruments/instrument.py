@@ -20,6 +20,7 @@ class Instrument:
         self.data_extension = None
         self.error_extension = None
         self.error_type = None
+        self.wavelength_cards = {}
 
     @property
     def data_extension(self):
@@ -52,3 +53,11 @@ class Instrument:
     @error_type.setter
     def error_type(self, error_type):
         self._error_type = error_type
+
+    @property
+    def wavelength_cards(self):
+        return self._wavelength_cards
+
+    @wavelength_cards.setter
+    def wavelength_cards(self, wavelength_cards):
+        self._wavelength_cards = wavelength_cards

@@ -1,6 +1,8 @@
 import numpy as np
+from pycube import msgs
 from pycube.ancillary import units
 from pycube.datacontainers import datacontainer
+from astropy import units as u
 
 
 class DataCube(datacontainer.DataContainer):
@@ -12,7 +14,14 @@ class DataCube(datacontainer.DataContainer):
     def get_wavelength_vector(self, with_units=True):
         """Returns a vector with the same size of the spectral axis but with the wavelength information in it
 
-        This is calculated from the 'CRVAL3' and 'CDELT3'
+        This is calculated from the 'CRVAL3', 'CDELT3', and 'CUNIT3'
+
+        Args:
+            with_units (bool): if set to `True` the code will try to get the unit information from the
+                header card 'CUNIT3' and attach it to the result
+
+        Returns:
+            np.array, quantity: array of wavelengths
         """
         wavelength = self.get_data_header(header_card=
                                           self.instrument.wavelength_cards['CRVAL3']) + \
@@ -24,11 +33,53 @@ class DataCube(datacontainer.DataContainer):
                                                                      self.instrument.wavelength_cards['CUNIT3']))
         return wavelength
 
+    def get_wavelength_min_max(self, with_units=True):
+        """Returns the spectral range covered by the datacube
+
+        Args:
+            with_units (bool): if set to `True` the code will try to get the unit information from the
+                header card 'CUNIT3' and attach it to the result
+
+        Returns:
+            tuple: min_wavelength and max_wavelength as floats. If the `with_units` is set to `True` these will be
+                quantities
+        """
+        _wavelength = self.get_wavelength_vector(with_units=with_units)
+        return np.nanmin(_wavelength), np.nanmax(_wavelength)
+
     def get_channel_vector(self):
         """Returns a vector with the same size of the spectral axis
+
+        Returns:
+            np.array: starting from 0 to the total channel in the cube spectral direction
         """
         z_spectral, _, _ = self.get_data_size()
         return np.arange(z_spectral)
+
+    def get_channel_given_wavelength(self, wavelength_value):
+        """Given a wavelength, it returns the corresponding channel
+
+        Args:
+            wavelength_value (float, quantity): wavelength corresponding to the channel
+
+        Returns
+            int: closest spectral channel corresponding to the wavelength
+        """
+        if isinstance(wavelength_value, u.quantity.Quantity):
+            with_units = True
+        else:
+            with_units = False
+        wavelength = self.get_wavelength_vector(with_units=with_units)
+        if with_units:
+            wavelength_value.to_value(wavelength.unit)
+        wavelength_min, wavelength_max = self.get_wavelength_min_max(with_units=with_units)
+        if (wavelength_value<wavelength_min) or (wavelength_value>wavelength_max):
+            msgs.warning(r'{:.4f} outside the wavelength range {:.4f} < lambda < {:.4f}'.format(wavelength_value,
+                                                                                                wavelength_min,
+                                                                                                wavelength_max))
+            return None
+        difference_in_wavelength = np.absolute(wavelength - wavelength_value)
+        return difference_in_wavelength.argmin()
 
     def get_data_size(self):
         """Return the size of a cube in z, y, and x
@@ -37,6 +88,45 @@ class DataCube(datacontainer.DataContainer):
         """
         z_spectral, y_spatial, x_spatial = np.shape(self.get_data())
         return z_spectral, y_spatial, x_spatial
+
+    def collapse(self, min_wavelength=None, max_wavelength=None, mask_wavelength=None, to_flux=True):
+        """Collapse the cube along the spectral axis given a range of values.
+
+        If 'mask_wavelength' is specified, the channel marked as 'True' will be excluded from the collapsing
+
+        Args:
+            min_wavelength (float, quantity): Minimum wavelength from where to collapse the cube
+            max_wavelength (float, quantity): Maximum wavelength to where the cube will be collapsed
+            mask_wavelength (np.array): Boolean array with the same length of the spectral axis of the cube.
+                Only channels set to `False` will be used for the collapsing
+
+        Returns:
+            tuple: data and errors derived from the collapsing process. These are image.Image objects.
+        """
+        if to_flux:
+            scale_factor = 1.
+            msgs.work(r'Converting the units to fluxes')
+        else:
+            scale_factor = 1.
+
+        # test for quantities
+        if isinstance(min_wavelength, u.quantity.Quantity) and isinstance(max_wavelength, u.quantity.Quantity):
+            with_units = True
+        elif isinstance(min_wavelength, u.quantity.Quantity) and not isinstance(max_wavelength, u.quantity.Quantity):
+            raise TypeError(r'min_wavelength type is different from max_wavelength type')
+        elif not isinstance(min_wavelength, u.quantity.Quantity) and isinstance(max_wavelength, u.quantity.Quantity):
+            raise TypeError(r'min_wavelength type is different from max_wavelength type')
+        else:
+            with_units = False
+        _min_wavelength_cube, _max_wavelength_cube = self.get_wavelength_min_max(with_units=with_units)
+        if min_wavelength is None:
+            min_wavelength = _min_wavelength_cube
+        if max_wavelength is None:
+            max_wavelength = _max_wavelength_cube
+        _min_channel_cube = self.get_channel_given_wavelength(min_wavelength)
+        _max_channel_cube = self.get_channel_given_wavelength(max_wavelength)
+
+
 
 '''
 def collapse_cube(datacube,

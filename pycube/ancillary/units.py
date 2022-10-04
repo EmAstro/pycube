@@ -2,7 +2,9 @@ import astropy.units as u
 
 string_to_astropy_units = {
     'um': u.micron,
-    'Angstrom': u.angstrom
+    'Angstrom': u.angstrom,
+    '10**(-20)*erg/s/cm**2/Angstrom': 10**20.*u.erg*u.s**-1*u.cm**-2*u.angstrom,
+    'MJy/sr': 10**6.*u.Jy*u.sr
 }
 
 
