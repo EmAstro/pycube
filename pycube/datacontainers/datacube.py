@@ -99,6 +99,9 @@ class DataCube(datacontainer.DataContainer):
             max_wavelength (float, quantity): Maximum wavelength to where the cube will be collapsed
             mask_wavelength (np.array): Boolean array with the same length of the spectral axis of the cube.
                 Only channels set to `False` will be used for the collapsing
+            to_flux (bool): if 'True' the result is multiplied by the wavelength bin to have the result in
+                10**20.*u.erg*u.s**-1*u.cm**-2 (this is currently hard coded, but it may change in the future). If
+                'False' it will be a simple sum over the selected channels (thus the units are likely to be wrong).
 
         Returns:
             tuple: data and errors derived from the collapsing process. These are image.Image objects.

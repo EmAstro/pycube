@@ -1,6 +1,7 @@
 import numpy as np
 
 from astropy.io import fits
+from astropy.wcs import WCS
 from pycube.ancillary import checks
 from pycube import msgs
 
@@ -130,6 +131,13 @@ class DataContainer:
         else:
             msgs.warning('error_extension needs to be specified')
             return None
+
+    def get_pixel_area(self, extension=None):
+        """Extract the pixel scale from the header
+
+        """
+        wcs = WCS(self.get_data_header(extension=extension))
+        return wcs.proj_plane_pixel_area()
 
     def copy(self):
         """Returns a shallow copy
