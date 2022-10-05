@@ -601,7 +601,8 @@ def make_moments(datacontainer,
                  s_smooth=None,
                  truncate=5.,
                  debug=False,
-                 show_debug=False):
+                 show_debug=False,
+                 output='Object'):
     """ Given a PSF-Subtracted datacube, this macro extracts the moment 0, 1, 2
     maps of the halo identified by mask_halo.
     Where:
@@ -650,6 +651,8 @@ def make_moments(datacontainer,
         is truncated
     debug, show_debug : boolean, optional
         runs debug sequence to display output of function (default False)
+    output : str, optional
+        Output name of saved figure if running show_debug
 
     Returns
     -------
@@ -774,6 +777,8 @@ def make_moments(datacontainer,
                         zorder=1, linestyle='-')
         plt.tight_layout()
         if show_debug:
+            plt.savefig(output + "_optimal_spectrum.pdf", dpi=400.,
+                        format="pdf", bbox_inches="tight")
             plt.show()
         plt.close()
 
@@ -816,6 +821,8 @@ def make_moments(datacontainer,
 
         plt.tight_layout()
         if show_debug:
+            plt.savefig(output + "_moments.pdf", dpi=400.,
+                        format="pdf", bbox_inches="tight")
             plt.show()
         plt.close()
 

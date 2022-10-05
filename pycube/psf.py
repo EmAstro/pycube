@@ -1120,7 +1120,7 @@ def create_psf(datacontainer,
         
     Returns
     -------
-    psfData, psfStat : np.array
+    psf_data, psf_stat : np.array
         PSF data and variance images
     """
 
