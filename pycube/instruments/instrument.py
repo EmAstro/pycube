@@ -21,6 +21,7 @@ class Instrument:
         self.error_extension = None
         self.error_type = None
         self.wavelength_cards = {}
+        self.update_units = False
 
     @property
     def data_extension(self):
@@ -61,3 +62,11 @@ class Instrument:
     @wavelength_cards.setter
     def wavelength_cards(self, wavelength_cards):
         self._wavelength_cards = wavelength_cards
+
+    @property
+    def update_units(self):
+        return self._update_units
+
+    @update_units.setter
+    def update_units(self, update_units):
+        self._update_units = update_units

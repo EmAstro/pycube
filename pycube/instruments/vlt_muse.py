@@ -13,4 +13,5 @@ class VLTMuse(instrument.Instrument):
                                  'CRPIX3': 'CRPIX3',
                                  'CDELT3': 'CD3_3',
                                  'CUNIT3': 'CUNIT3'}
+        self.update_units = False
 

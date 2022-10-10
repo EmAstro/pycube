@@ -13,4 +13,5 @@ class JWSTNIRSpec(instrument.Instrument):
                                  'CRPIX3': 'CRPIX3',
                                  'CDELT3': 'CDELT3',
                                  'CUNIT3': 'CUNIT3'}
+        self.update_units = True
 

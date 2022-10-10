@@ -1,19 +1,26 @@
 import numpy as np
 
 from astropy.io import fits
+import astropy.units as u
 from astropy.wcs import WCS
 from pycube.ancillary import checks
+from pycube.ancillary import units
 from pycube import msgs
+
 
 from pycube.instruments import vlt_muse
 from pycube.instruments import jwst_nirspec
 
 __all__ = ['DataContainer']
 
+DEFAULT_FLUX_DENSITY_UNITS = 10**-20.*u.erg*u.s**-1*u.cm**-2*u.angstrom**-1
+DEFAULT_WAVELENGTH_UNITS = u.angstrom
+
 
 class DataContainer:
     r"""Base class to dictate the general behavior of a data container
 
+    This class is oriented to work with units of 10**-20.*u.erg*u.s**-1*u.cm**-2*Ang.**-1 and Ang. for wavelength
     Attributes:
 
     """
@@ -67,6 +74,18 @@ class DataContainer:
                     msgs.warning('Instrument {} not initialized'.format(self.hdul[0].header['INSTRUME']))
             else:
                 msgs.warning('Instrument not defined')
+        if self.instrument is not None:
+            if self.instrument.update_units is True:
+                # ToDo this is now hard-coded and should be made more pythonic and flexible
+                if self.instrument.name == 'NIRSpec':
+                    if self.get_data_header(header_card='CUNIT3').strip() == 'um':
+                        _current_wavelength_units = units.to_astropy_units(self.get_data_header(header_card='CUNIT3'))
+                        msgs.info('Wavelength in {}'.format(_current_wavelength_units))
+                    if self.get_data_header(header_card='BUNIT').strip() == 'MJy/sr':
+                        _current_flux_density_units = units.to_astropy_units(self.get_data_header(header_card='BUNIT'))
+                        msgs.info('Fluxes in {}'.format(_current_flux_density_units))
+                        msgs.info('Converted to {}'.format(DEFAULT_FLUX_DENSITY_UNITS))
+                    print(self.get_pixel_area().to(u.sr))
 
     def get_data_hdu(self, extension=None):
         """Get the HDU for the data extension
@@ -129,7 +148,7 @@ class DataContainer:
         if extension is not None:
             return self.hdul[extension]
         else:
-            msgs.warning('error_extension needs to be specified')
+            msgs.warning('extension needs to be specified')
             return None
 
     def get_pixel_area(self, extension=None):
@@ -138,6 +157,14 @@ class DataContainer:
         """
         wcs = WCS(self.get_data_header(extension=extension))
         return wcs.proj_plane_pixel_area()
+
+    def get_updated_data_header(self, header_card=None, header_value=None, extension=None):
+        """Update header value
+
+        """
+        if extension is None:
+            extension = self.instrument.data_extension
+        self.hdul[extension].header[header_card] = header_value
 
     def copy(self):
         """Returns a shallow copy
