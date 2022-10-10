@@ -20,7 +20,10 @@ DEFAULT_WAVELENGTH_UNITS = u.angstrom
 class DataContainer:
     r"""Base class to dictate the general behavior of a data container
 
-    This class is oriented to work with units of 10**-20.*u.erg*u.s**-1*u.cm**-2*Ang.**-1 and Ang. for wavelength
+    This class is oriented to work with units of 10**-20.*u.erg*u.s**-1*u.cm**-2*Ang.**-1 and wavelength in Ang.
+    By default the code will try to convert the units in your cube and update the values in the fits header (this is
+    now implemented only for NIRSpec).
+
     Attributes:
 
     """
