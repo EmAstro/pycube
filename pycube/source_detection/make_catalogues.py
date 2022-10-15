@@ -298,6 +298,9 @@ def detect(zap,cat):
         os.mkdir(lsdcat_original_spectra_directory_path)
 
 
+    flux_1=[]
+    flux_2=[]
+    flux_3=[]
 
     a_mean=[]
     a_median=[]
@@ -310,6 +313,17 @@ def detect(zap,cat):
     ra_potential_sources=[]
     dec_potential_sources = []
     wave_potential_sources =[]
+
+
+
+    wavelengths=[]
+    wave_start = f['DATA'].header['CRVAL3']
+    for i in range(f['DATA'].header['NAXIS3']):
+        wavelengths.append(wave_start)
+        wave_start+=wave_step
+    wavelengths=np.asarray(wavelengths)
+    wavelengths=1e-10 * wavelengths
+
     #Image Creation len(ra_possible_source)
     for i in range(len(ra_possible_source)):
         print(f"RUN {i+1}")
@@ -402,6 +416,14 @@ def detect(zap,cat):
         flux, err = spectra_extraction(ra_img_pix, dec_img_pix)
         flux = np.asarray(flux)
         err = np.asarray(err)
+
+        for y in range(len(wavelengths)):
+            if wavelengths[y] == 8998.75e-10:
+                flux_1.append(flux[i])
+                flux_2.append(flux[i+1])
+                flux_3.append(flux[i+2])
+            else:
+                continue
 
         a=[]
         b=[]
@@ -571,6 +593,45 @@ def detect(zap,cat):
     file_6.close()
     print("means and medians created\n")
 
+    print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
 
 
-    return ra_edges_removed,dec_edges_removed
+
+
+    wave_count = np.zeros(f['DATA'].header['NAXIS3'])
+    wave_count_2=[]
+    for i in range(len(ra_edges_removed)):
+        for j in range(len(np.trim_zeros(wave_edges_removed[i]))):
+            for k in range(len(wavelengths)):
+
+                if wavelengths[k] == wave_edges_removed[i][j]:
+                    wave_count[k]+=1
+                    wave_count_2.append(wave_edges_removed[i][j])
+                else:
+                    continue
+
+    print("HI")
+    for i in range(len(wave_count)):
+        print(f"{wavelengths[i]} : {wave_count[i]}")
+
+    print("CREATING wavelength count catalogue")
+    name_of_catalogue = os.path.join(lsdcat_directory_path, "wave_count.txt")
+    file_7 = open(name_of_catalogue, "w+")
+    file_7.write("Wavelength : Count\n")
+    for i in range(len(wave_count)):
+        if wave_count[i] !=0.0:
+            file_7.write(f"{wavelengths[i]} : {wave_count[i]}\n")
+        else:
+            continue
+    file_7.close()
+    print("CATALOGUE CREATED\n")
+
+    print(flux_1)
+    print(flux_2)
+    print(flux_3)
+
+    print(f"{np.amin(flux_1)}, {np.amax(flux_1)}")
+    print(f"{np.amin(flux_2)}, {np.amax(flux_2)}")
+    print(f"{np.amin(flux_3)}, {np.amax(flux_3)}")
+
+    return wavelengths, wave_count_2, flux_1, flux_2, flux_3
