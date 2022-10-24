@@ -417,6 +417,8 @@ def detect(zap,cat):
         flux = np.asarray(flux)
         err = np.asarray(err)
 
+        #flux = flux * wave_step
+
         for y in range(len(wavelengths)):
             if wavelengths[y] == 8998.75e-10:
                 flux_1.append(flux[i])
@@ -440,8 +442,9 @@ def detect(zap,cat):
         print(f"b_sum = {np.nansum(b)}")
 
 
-
-        if  np.nanmean(b)>-500 and np.nansum(b)>-20000:
+        k=0
+        #np.nanmean(b) > -500 and np.nansum(b) > -20000
+        if np.nanmean(b) > -500 and np.nansum(b) > -20000:
             ra_potential_sources.append(ra_img)
             dec_potential_sources.append(dec_img)
             wave_potential_sources.append(wave_possible_source[i])
@@ -600,13 +603,13 @@ def detect(zap,cat):
 
     wave_count = np.zeros(f['DATA'].header['NAXIS3'])
     wave_count_2=[]
-    for i in range(len(ra_edges_removed)):
-        for j in range(len(np.trim_zeros(wave_edges_removed[i]))):
+    for i in range(len(ra_potential_sources)):
+        for j in range(len(np.trim_zeros(wave_potential_sources[i]))):
             for k in range(len(wavelengths)):
 
-                if wavelengths[k] == wave_edges_removed[i][j]:
+                if wavelengths[k] == wave_potential_sources[i][j]:
                     wave_count[k]+=1
-                    wave_count_2.append(wave_edges_removed[i][j])
+                    wave_count_2.append(wave_potential_sources[i][j])
                 else:
                     continue
 
