@@ -134,8 +134,8 @@ def detect(zap,cat):
 
     print("Removing Edges")
     # Edges Removed
-    x_edges_removed = np.asarray([20, hdr['NAXIS1'] - 20])
-    y_edges_removed = np.asarray([20, hdr['NAXIS2'] - 20])
+    x_edges_removed = np.asarray([25, hdr['NAXIS1'] - 25])
+    y_edges_removed = np.asarray([25, hdr['NAXIS2'] - 25])
     ra_edges_removed = []
     dec_edges_removed = []
     n_edges_removed=[]
@@ -157,7 +157,7 @@ def detect(zap,cat):
 
 
 
-    wave_edges_removed = np.empty(shape=(len(ra_edges_removed), np.amax(count_arr)))
+
 
 
 
@@ -326,7 +326,7 @@ def detect(zap,cat):
 
     #Image Creation len(ra_possible_source)
     for i in range(len(ra_possible_source)):
-        print(f"RUN {i+1}")
+        print(f"RUN {i+1}/{len(ra_possible_source)}")
 
         ra_img = ra_possible_source[i]
         dec_img = dec_possible_source[i]
@@ -416,14 +416,14 @@ def detect(zap,cat):
         flux, err = spectra_extraction(ra_img_pix, dec_img_pix)
         flux = np.asarray(flux)
         err = np.asarray(err)
-
+        print(f"{len(wavelengths)} : {len(flux)}")
         #flux = flux * wave_step
 
         for y in range(len(wavelengths)):
             if wavelengths[y] == 8998.75e-10:
-                flux_1.append(flux[i])
-                flux_2.append(flux[i+1])
-                flux_3.append(flux[i+2])
+                flux_1.append(flux[y])
+                flux_2.append(flux[y+1])
+                flux_3.append(flux[y+2])
             else:
                 continue
 
@@ -638,6 +638,9 @@ def detect(zap,cat):
     file_7.close()
     print("CATALOGUE CREATED\n")
 
+    flux_1 = np.asarray(flux_1)
+    flux_2 = np.asarray(flux_2)
+    flux_3 = np.asarray(flux_3)
     print(flux_1)
     print(flux_2)
     print(flux_3)
@@ -646,4 +649,4 @@ def detect(zap,cat):
     print(f"{np.amin(flux_2)}, {np.amax(flux_2)}")
     print(f"{np.amin(flux_3)}, {np.amax(flux_3)}")
 
-    return wavelengths, wave_count_2, flux_1, flux_2, flux_3
+    return wavelengths, wave_count_2, flux_1, flux_2, flux_3,wave
