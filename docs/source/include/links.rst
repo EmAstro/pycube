@@ -25,6 +25,16 @@
 .. _astropy.coordinates.SkyCoord: https://docs.astropy.org/en/stable/api/astropy.coordinates.SkyCoord.html
 .. _astropy.coordinates.EarthLocation: https://docs.astropy.org/en/stable/api/astropy.coordinates.EarthLocation.html
 .. _astropy.stats.SigmaClip: https://docs.astropy.org/en/stable/api/astropy.stats.SigmaClip.html
+.. _astropy.units.Quantity: https://docs.astropy.org/en/stable/api/astropy.units.Quantity.html
+
+.. sphinx
+.. _Sphinx: https://www.sphinx-doc.org/en/master/index.html
+.. _reStructuredText: http://docutils.sourceforge.net/rst.html
+.. _Google-format docstrings: https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html#example-google
+.. _Numpy-format docstrings: https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html#example-numpy
 
 .. references
 .. _Farina et al. (2019): https://ui.adsabs.harvard.edu/abs/2019ApJ...887..196F
+
+.. emails
+.. _Ema P. Farina: emanuele.paolo.farina@gmail.com

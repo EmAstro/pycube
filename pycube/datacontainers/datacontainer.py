@@ -14,7 +14,11 @@ from pycube.instruments import jwst_nirspec
 __all__ = ['DataContainer']
 
 DEFAULT_FLUX_DENSITY_UNITS = 10**-20.*u.erg*u.s**-1*u.cm**-2*u.angstrom**-1
-DEFAULT_WAVELENGTH_UNITS = u.angstrom
+DEFAULT_WAVELENGTH_UNITS = 1.*u.angstrom
+ERROR_TYPES = {'None': {'Descriptor': 'No error type defined'},
+               'SIGMA': {'Descriptor': 'Error extension contains 1 sigma'},
+               'VAR': {'Descriptor': 'Error extension contains variance'},
+               'IVAR': {'Descriptor': 'Error extension contains the inverse variance'}}
 
 
 class DataContainer:
@@ -58,9 +62,9 @@ class DataContainer:
             self._fits_file = None
         elif checks.fits_file_is_valid(fits_file):
             self._fits_file = fits_file
-            msgs.work('Loading datacube...')
+            msgs.work('Loading data...')
             self.hdul = fits.open(fits_file)
-            msgs.info('Datacube loaded')
+            msgs.info('Data loaded')
         else:
             raise ValueError('Error in reading in {}'.format(fits_file))
         if self.instrument is None:
@@ -77,18 +81,7 @@ class DataContainer:
                     msgs.warning('Instrument {} not initialized'.format(self.hdul[0].header['INSTRUME']))
             else:
                 msgs.warning('Instrument not defined')
-        if self.instrument is not None:
-            if self.instrument.update_units is True:
-                # ToDo this is now hard-coded and should be made more pythonic and flexible
-                if self.instrument.name == 'NIRSpec':
-                    if self.get_data_header(header_card='CUNIT3').strip() == 'um':
-                        _current_wavelength_units = units.to_astropy_units(self.get_data_header(header_card='CUNIT3'))
-                        msgs.info('Wavelength in {}'.format(_current_wavelength_units))
-                    if self.get_data_header(header_card='BUNIT').strip() == 'MJy/sr':
-                        _current_flux_density_units = units.to_astropy_units(self.get_data_header(header_card='BUNIT'))
-                        msgs.info('Fluxes in {}'.format(_current_flux_density_units))
-                        msgs.info('Converted to {}'.format(DEFAULT_FLUX_DENSITY_UNITS))
-                    print(self.get_pixel_area().to(u.sr))
+
 
     def get_data_hdu(self, extension=None):
         """Get the HDU for the data extension

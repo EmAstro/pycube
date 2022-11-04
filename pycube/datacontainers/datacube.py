@@ -8,8 +8,43 @@ from astropy import units as u
 class DataCube(datacontainer.DataContainer):
     r"""This class is designed to dictate the behaviour of a datacube
     """
+
     def __init__(self, hdul=None, instrument=None, fits_file=None):
         super().__init__(hdul=hdul, instrument=instrument, fits_file=fits_file)
+
+    @datacontainer.DataContainer.fits_file.setter
+    def fits_file(self, fits_file):
+        _fits_file = fits_file
+        super(DataCube, type(self)).fits_file.fset(self, _fits_file)
+        if self.instrument is not None:
+            if self.instrument.update_units is True:
+                _current_wavelength_units = units.to_astropy_quantity(
+                    self.get_data_header(header_card=self.instrument.wavelength_cards['CUNIT3']))
+                self.hdul = units.update_wavelength_units_in_header(self.hdul,
+                                                                    self.instrument.wavelength_cards['CRVAL3'],
+                                                                    self.instrument.wavelength_cards['CDELT3'],
+                                                                    self.instrument.wavelength_cards['CUNIT3'],
+                                                                    to_quantity=datacontainer.DEFAULT_WAVELENGTH_UNITS)
+                _new_wavelength_units = units.to_astropy_quantity(
+                    self.get_data_header(header_card=self.instrument.wavelength_cards['CUNIT3']))
+                msgs.info('Wavelength converted from {} to {}'.format(_current_wavelength_units,
+                                                                      _new_wavelength_units))
+
+                _current_flux_density_units = units.to_astropy_quantity(self.get_data_header(
+                    header_card='BUNIT'))
+                self.hdul = units.update_spectral_flux_units_in_header(self.hdul,
+                                                                       wavelength_vector=self.get_wavelength_vector(
+                                                                           with_units=True),
+                                                                       data_extension=self.instrument.data_extension,
+                                                                       error_extension=self.instrument.error_extension,
+                                                                       error_type=self.instrument.error_type,
+                                                                       to_quantity=
+                                                                       datacontainer.DEFAULT_FLUX_DENSITY_UNITS
+                                                                       )
+                _new_flux_density_units = units.to_astropy_quantity(self.get_data_header(
+                    header_card='BUNIT'))
+                msgs.info('Fluxes converted from {} to {}'.format(_current_flux_density_units,
+                                                                  _new_flux_density_units))
 
     def get_wavelength_vector(self, with_units=True):
         """Returns a vector with the same size of the spectral axis but with the wavelength information in it
@@ -25,12 +60,12 @@ class DataCube(datacontainer.DataContainer):
         """
         wavelength = self.get_data_header(header_card=
                                           self.instrument.wavelength_cards['CRVAL3']) + \
-                     self.get_channel_vector()*self.get_data_header(header_card=
-                                                                    self.instrument.wavelength_cards['CDELT3'])
+                     self.get_channel_vector() * self.get_data_header(header_card=
+                                                                      self.instrument.wavelength_cards['CDELT3'])
         if with_units:
             wavelength = wavelength * \
-                         units.to_astropy_units(self.get_data_header(header_card=
-                                                                     self.instrument.wavelength_cards['CUNIT3']))
+                         units.to_astropy_quantity(self.get_data_header(header_card=
+                                                                        self.instrument.wavelength_cards['CUNIT3']))
         return wavelength
 
     def get_wavelength_min_max(self, with_units=True):
@@ -73,7 +108,7 @@ class DataCube(datacontainer.DataContainer):
         if with_units:
             wavelength_value.to_value(wavelength.unit)
         wavelength_min, wavelength_max = self.get_wavelength_min_max(with_units=with_units)
-        if (wavelength_value<wavelength_min) or (wavelength_value>wavelength_max):
+        if (wavelength_value < wavelength_min) or (wavelength_value > wavelength_max):
             msgs.warning(r'{:.4f} outside the wavelength range {:.4f} < lambda < {:.4f}'.format(wavelength_value,
                                                                                                 wavelength_min,
                                                                                                 wavelength_max))
@@ -128,7 +163,6 @@ class DataCube(datacontainer.DataContainer):
             max_wavelength = _max_wavelength_cube
         _min_channel_cube = self.get_channel_given_wavelength(min_wavelength)
         _max_channel_cube = self.get_channel_given_wavelength(max_wavelength)
-
 
 
 '''

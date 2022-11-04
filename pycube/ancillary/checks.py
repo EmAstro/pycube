@@ -1,14 +1,16 @@
-r"""Module that performs some useful and basic checks and transformations
+"""
+Module that performs some useful and basic checks and transformations on fits files
+
+.. include:: ../../docs/source/include/links.rst
 """
 
 # import sys
-import numpy as np
-import shutil
-import urllib
+# import numpy as np
+# import shutil
+# import urllib
+
 import os.path
-
 from astropy.io import fits
-
 from pycube import msgs
 
 
@@ -21,6 +23,7 @@ def fits_file_is_valid(fits_file, verify_fits=False, overwrite=False):
         fits_file (str): fits file you would like to check
         verify_fits (bool): if set to `True`, it will verify that the fits file is complaint to the FITS standard.
         overwrite (bool): if `True`, overwrite the input fits file with the header corrections from `verify_fits`
+
     Returns:
         bool: `True` if exists `False` and warning raised if not.
     """

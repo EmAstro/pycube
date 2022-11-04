@@ -6,7 +6,7 @@ class VLTMuse(instrument.Instrument):
         self.primary_extension = 'PRIMARY'
         self.data_extension = 'DATA'
         self.error_extension = 'STAT'
-        self.error_type = 'Variance'
+        self.error_type = 'VAR'
         self.telescope = 'VLT'  # ToDo this will be made a class
         self.name = 'MUSE'
         self.wavelength_cards = {'CRVAL3': 'CRVAL3',

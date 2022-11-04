@@ -53,6 +53,7 @@ class Instrument:
 
     @error_type.setter
     def error_type(self, error_type):
+        # ToDo add check on valid error type
         self._error_type = error_type
 
     @property

@@ -10,6 +10,33 @@ The pycube API reference
 pycube
 ------
 
+Ancillary functions
++++++++++++++++++++
+
+checks
+""""""
+
+.. automodule:: pycube.ancillary.checks
+    :members:
+
+cleaning_lists
+""""""""""""""
+
+.. automodule:: pycube.ancillary.cleaning_lists
+    :members:
+
+plot_settings
+"""""""""""""
+
+.. automodule:: pycube.ancillary.plot_settings
+    :members:
+
+units
+"""""
+
+.. automodule:: pycube.ancillary.units
+    :members:
+
 The cubeClass class
 ++++++++++++++++++++
 
@@ -64,20 +91,6 @@ image
 .. automodule:: pycube.datacontainers.image
     :members:
 
-pycube.ancillary
-----------------
-
-checks
-++++++
-
-.. automodule:: pycube.ancillary.checks
-    :members:
-
-cleaning_lists
-++++++++++++++
-
-.. automodule:: pycube.ancillary.cleaning_lists
-    :members:
 
 pycube.instruments
 ------------------
