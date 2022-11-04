@@ -63,7 +63,7 @@ class DataContainer:
         elif checks.fits_file_is_valid(fits_file):
             self._fits_file = fits_file
             msgs.work('Loading data...')
-            self.hdul = fits.open(fits_file)
+            self.hdul = fits.open(fits_file, output_verify='silentfix')
             msgs.info('Data loaded')
         else:
             raise ValueError('Error in reading in {}'.format(fits_file))
@@ -81,7 +81,6 @@ class DataContainer:
                     msgs.warning('Instrument {} not initialized'.format(self.hdul[0].header['INSTRUME']))
             else:
                 msgs.warning('Instrument not defined')
-
 
     def get_data_hdu(self, extension=None):
         """Get the HDU for the data extension
@@ -168,3 +167,13 @@ class DataContainer:
         """
         return DataContainer(hdul=self.hdul.copy(), fits_file=self.fits_file, instrument=self.instrument)
 
+    def save(self, output_fits_file, overwrite=False):
+        """Save the fits file
+
+        Args:
+            output_fits_file (str): name of the new output fits file
+            overwrite (bool, optional): if `True`, overwrite the `output_fits_file` it exists.
+        """
+        msgs.work('Saving data..')
+        self.hdul.writeto(output_fits_file, output_verify='silentfix', overwrite=overwrite, checksum=True)
+        msgs.info('File {} written'.format(output_fits_file))

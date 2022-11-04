@@ -150,7 +150,7 @@ def convert_to_channel(datacontainer,
     np.array
         An array of channel values for given wavelength
     """
-
+    print('DO NOT USE THIS')
     data_headers = datacontainer.get_data_header()
     channel_range = channel_array(datacube, channels)
     channel = np.array(channel_range) - data_headers['CRVAL3'] / data_headers['CD3_3']

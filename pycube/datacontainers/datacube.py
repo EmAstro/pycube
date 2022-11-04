@@ -35,6 +35,7 @@ class DataCube(datacontainer.DataContainer):
                 self.hdul = units.update_spectral_flux_units_in_header(self.hdul,
                                                                        wavelength_vector=self.get_wavelength_vector(
                                                                            with_units=True),
+                                                                       pixel_area=self.get_pixel_area(),
                                                                        data_extension=self.instrument.data_extension,
                                                                        error_extension=self.instrument.error_extension,
                                                                        error_type=self.instrument.error_type,

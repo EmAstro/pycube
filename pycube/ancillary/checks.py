@@ -17,11 +17,11 @@ from pycube import msgs
 def fits_file_is_valid(fits_file, verify_fits=False, overwrite=False):
     r"""Check if a file exists and has a valid extension
 
-    The option `verify_fits` checks the header of the fits file using `astropy.io.fits.verify`
+    The option `verify_fits` checks the header of the fits file as in `astropy.io.fits.verification`_
 
     Args:
         fits_file (str): fits file you would like to check
-        verify_fits (bool): if set to `True`, it will verify that the fits file is complaint to the FITS standard.
+        verify_fits (bool): if set to `True`, it will verify that the fits file is complaint to the `FITS standard`_.
         overwrite (bool): if `True`, overwrite the input fits file with the header corrections from `verify_fits`
 
     Returns:
@@ -64,6 +64,7 @@ def check_checksums(hdul):
 
     Args:
         hdul (`astropy.io.fits.HDUList`_): list of `astropy`_ HDUs to be checked
+
     Returns:
         bool: `True` all the HDUs in the input `astropy.io.fits.HDUList`_ have the correct `datasum` and `checksum`
     """
