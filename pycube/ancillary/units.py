@@ -135,7 +135,6 @@ def update_spectral_flux_units_in_header(hdul, wavelength_vector, pixel_area,
                 astropy_quantity, astropy_type = _to_astropy_quantity_and_type(hdul[extension].header['BUNIT'])
                 if astropy_type == 'f_nu_over_sr':
                     astropy_quantity = astropy_quantity * pixel_area.to(u.sr)
-                    print(astropy_quantity)
                     scale_factor = astropy_quantity.to(to_quantity, equivalencies=u.spectral_density(
                         wavelength_vector)).value
                     if extension == data_extension:
