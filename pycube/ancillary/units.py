@@ -151,8 +151,3 @@ def update_spectral_flux_units_in_header(hdul, wavelength_vector, pixel_area,
                 else:
                     raise NotImplementedError('The requested unit type {} is not implemented yet'.format(astropy_type))
     return hdul
-
-'''
-def convert_flux_density_to_cgs(unit):
-    if units 
-'''
