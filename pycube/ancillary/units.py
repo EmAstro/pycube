@@ -41,9 +41,10 @@ def to_astropy_quantity(quantity_string):
 
 
 def _to_astropy_quantity_and_type(quantity_string):
-    """Converts quantity given as a string to an astropy `astropy.units.Quantity`_
+    """Converts quantity given as a string to an astropy `astropy.units.Quantity`_ and its type.
 
-    The behavior is dictated by the dictionary: `units.STRING_TO_ASTROPY_QUANTITY`.
+    The behavior is dictated by the dictionary: `units.STRING_TO_ASTROPY_QUANTITY`. The type information is used
+    internally by the code to perform the correct conversion.
 
     Args:
         quantity_string (str): string to be mapped in an `astropy.units.Quantity`_
