@@ -135,6 +135,8 @@ def update_spectral_flux_units_in_header(hdul, wavelength_vector, pixel_area,
             if hdul[extension].header['BUNIT'] != to_string_quantity(to_quantity):
                 astropy_quantity, astropy_type = _to_astropy_quantity_and_type(hdul[extension].header['BUNIT'])
                 if astropy_type == 'f_nu_over_sr':
+                    # To avoid issues with the conversion of units. Everything moves to cgs and then is translated
+                    # back into the requested units.
                     astropy_quantity = astropy_quantity * pixel_area.to(u.sr)
                     scale_factor = astropy_quantity.to(to_quantity, equivalencies=u.spectral_density(
                         wavelength_vector)).value

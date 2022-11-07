@@ -1,3 +1,9 @@
+"""
+Module to set matplotlib plot settings
+
+.. include:: ../../docs/source/include/links.rst
+"""
+
 import matplotlib.pyplot as plt
 
 
@@ -40,8 +46,8 @@ def set_rc_params():
     plt.rcParams["ytick.major.size"] = 6
     plt.rcParams["xtick.minor.size"] = 3
     plt.rcParams["ytick.minor.size"] = 3
-    plt.rcParams["xtick.labelsize"] = 28
-    plt.rcParams["ytick.labelsize"] = 28
+    plt.rcParams["xtick.labelsize"] = 22
+    plt.rcParams["ytick.labelsize"] = 22
     plt.rcParams["xtick.major.width"] = 1
     plt.rcParams["ytick.major.width"] = 1
     plt.rcParams["xtick.minor.width"] = 1
