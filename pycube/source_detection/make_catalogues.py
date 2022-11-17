@@ -134,8 +134,8 @@ def detect(zap,cat):
 
     print("Removing Edges")
     # Edges Removed
-    x_edges_removed = np.asarray([25, hdr['NAXIS1'] - 25])
-    y_edges_removed = np.asarray([25, hdr['NAXIS2'] - 25])
+    x_edges_removed = np.asarray([0, hdr['NAXIS1'] - 0])
+    y_edges_removed = np.asarray([0, hdr['NAXIS2'] - 0])
     ra_edges_removed = []
     dec_edges_removed = []
     n_edges_removed=[]
@@ -216,13 +216,14 @@ def detect(zap,cat):
     ra_possible_source = []
     dec_possible_source = []
     wave_possible_source = []
+    #if 7.75125e-7 < t[j] < 9.200e-7: if 7.500e-7 <= t[j] <= 9.350e-7:
 
     for i in range(len(ra_edges_removed)):
         m = 0
         t = np.trim_zeros(wave_edges_removed[i])
         t = np.asarray(t)
         for j in range(len(t)):
-            if 7.75125e-7 < t[j] < 9.200e-7:
+            if 7.500e-7 <= t[j] <= 9.350e-7:
                 m = m + 1
             else:
                 continue
@@ -262,14 +263,12 @@ def detect(zap,cat):
 
 
 
-    ###########################################################################################################
-    #datafile='/home/sai/Desktop/P183p05_DATACUBE_ZAP.fits'
-    #cube = Cube(datafile)
+
 
 
     step = cube.get_step()
     wave_step = step[0]
-    cube.data = cube.data * wave_step
+    #cube.data = cube.data * wave_step
 
 
 
@@ -301,6 +300,7 @@ def detect(zap,cat):
     flux_1=[]
     flux_2=[]
     flux_3=[]
+    flux_9000 = []
 
     a_mean=[]
     a_median=[]
@@ -416,8 +416,8 @@ def detect(zap,cat):
         flux, err = spectra_extraction(ra_img_pix, dec_img_pix)
         flux = np.asarray(flux)
         err = np.asarray(err)
-        print(f"{len(wavelengths)} : {len(flux)}")
-        #flux = flux * wave_step
+        flux = flux * wave_step
+
 
         for y in range(len(wavelengths)):
             if wavelengths[y] == 8998.75e-10:
@@ -442,6 +442,9 @@ def detect(zap,cat):
         print(f"b_sum = {np.nansum(b)}")
 
 
+
+
+
         k=0
         #np.nanmean(b) > -500 and np.nansum(b) > -20000
         if np.nanmean(b) > -500 and np.nansum(b) > -20000:
@@ -456,6 +459,7 @@ def detect(zap,cat):
 
             ra_potential_sources.append(ra_img)
             dec_potential_sources.append(dec_img)
+
             wave_potential_sources.append(wave_possible_source[i])
             a_mean.append(np.nanmean(a))
             a_median.append(np.nanmedian(a))
@@ -637,6 +641,7 @@ def detect(zap,cat):
             continue
     file_7.close()
     print("CATALOGUE CREATED\n")
+    print(np.sum(wave_count))
 
     flux_1 = np.asarray(flux_1)
     flux_2 = np.asarray(flux_2)
@@ -649,4 +654,5 @@ def detect(zap,cat):
     print(f"{np.amin(flux_2)}, {np.amax(flux_2)}")
     print(f"{np.amin(flux_3)}, {np.amax(flux_3)}")
 
-    return wavelengths, wave_count_2, flux_1, flux_2, flux_3,wave
+
+    return wavelengths, wave_count_2, flux_1, flux_2, flux_3
