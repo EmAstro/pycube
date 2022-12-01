@@ -9,8 +9,9 @@ from astropy import wcs
 from photutils import aperture_photometry,CircularAperture,CircularAnnulus
 from scipy import ndimage
 import warnings
+import pyregion
 
-def detect(zap,cat):
+def detect(zap,cat,dir):
     np.seterr(divide='ignore',invalid='ignore') #ignores true divide error
     warnings.filterwarnings('ignore')           #ignore warnings
     f = fits.open(zap)
@@ -21,7 +22,7 @@ def detect(zap,cat):
     r = 0.0002222
 
     print("Creating Main Directory in Desktop")
-    directory = "Detection_pycube"
+    directory = dir
     desktop_path = os.path.expanduser('~') + '/Desktop'
     dir_path = os.path.join(desktop_path, directory)
     if not os.path.exists(dir_path):
@@ -134,8 +135,8 @@ def detect(zap,cat):
 
     print("Removing Edges")
     # Edges Removed
-    x_edges_removed = np.asarray([0, hdr['NAXIS1'] - 0])
-    y_edges_removed = np.asarray([0, hdr['NAXIS2'] - 0])
+    x_edges_removed = np.asarray([20, hdr['NAXIS1'] - 20])
+    y_edges_removed = np.asarray([20, hdr['NAXIS2'] - 20])
     ra_edges_removed = []
     dec_edges_removed = []
     n_edges_removed=[]
@@ -213,6 +214,14 @@ def detect(zap,cat):
     ra_sky_line = []
     dec_sky_line = []
 
+    ra_possible_source_before_region = []
+    dec_possible_source_before_region = []
+    wave_possible_source_before_region = []
+
+    ra_possible_source_before_region_2 = []
+    dec_possible_source_before_region_2 = []
+    wave_possible_source_before_region_2 = []
+
     ra_possible_source = []
     dec_possible_source = []
     wave_possible_source = []
@@ -223,7 +232,7 @@ def detect(zap,cat):
         t = np.trim_zeros(wave_edges_removed[i])
         t = np.asarray(t)
         for j in range(len(t)):
-            if 7.500e-7 <= t[j] <= 9.350e-7:
+            if 7.75125e-7 < t[j] < 9.200e-7:
                 m = m + 1
             else:
                 continue
@@ -234,8 +243,37 @@ def detect(zap,cat):
             dec_sky_line.append(dec_edges_removed[i])
 
         elif m != 0:
-            ra_possible_source.append(ra_edges_removed[i])
-            dec_possible_source.append(dec_edges_removed[i])
+            ra_possible_source_before_region.append(ra_edges_removed[i])
+            dec_possible_source_before_region.append(dec_edges_removed[i])
+            wave_possible_source_before_region.append(t)
+
+    print(f"hello = {len(ra_edges_removed)}")
+    b = pyregion.open('/home/sai/Desktop/boxs_wcs.reg')
+    for o in range(len(ra_possible_source_before_region)):
+        for p in range(len(b)):
+            if b[p].coord_list[0] - (b[p].coord_list[2]/2) < ra_possible_source_before_region[o] < b[p].coord_list[0] + (b[p].coord_list[2]/2) and b[p].coord_list[1] -  (b[p].coord_list[3]/2) < dec_possible_source_before_region[o] < b[p].coord_list[1] +  (b[p].coord_list[3]/2):
+                ra_sky_line.append(ra_possible_source_before_region[o])
+                dec_sky_line.append(dec_possible_source_before_region[o])
+                break
+        else:
+            print(o)
+            ra_possible_source_before_region_2.append(ra_possible_source_before_region[o])
+            dec_possible_source_before_region_2.append(dec_possible_source_before_region[o])
+            t = wave_possible_source_before_region[o]
+            wave_possible_source_before_region_2.append(t)
+
+    b_2 =  pyregion.open('/home/sai/Desktop/manual_remove.reg')
+    for o in range(len(ra_possible_source_before_region_2)):
+        for p in range(len(b_2)):
+            if b_2[p].coord_list[0] - 0.0001389 < ra_possible_source_before_region_2[o] < b_2[p].coord_list[0] + 0.0001389 and b_2[p].coord_list[1] - 0.0001389 < dec_possible_source_before_region_2[o] < b_2[p].coord_list[1] + 0.0001389:
+                ra_sky_line.append(ra_possible_source_before_region_2[o])
+                dec_sky_line.append(dec_possible_source_before_region_2[o])
+                break
+        else:
+            print(o)
+            ra_possible_source.append(ra_possible_source_before_region_2[o])
+            dec_possible_source.append(dec_possible_source_before_region_2[o])
+            t=wave_possible_source_before_region_2[o]
             wave_possible_source.append(t)
 
     ra_sky_line = np.asarray(ra_sky_line)
@@ -258,6 +296,16 @@ def detect(zap,cat):
                  "\nfk5\n")
     for i in range(len(ra_sky_line)):
         file_3.write(f"circle({ra_sky_line[i]},{dec_sky_line[i]},{0.0002778})\n")
+    file_3.close()
+    print("FILE CREATED\n")
+
+    name_of_region_file = os.path.join(lsdcat_directory_path, "LSDcat_possible_source_file.reg")
+    file_3 = open(name_of_region_file, "w+")
+    file_3.write("#Region file format: DS9 version 4.1 "
+                 "\nglobal color=green dashlist=8 3 width=1 font='helvetica 10 normal roman' select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1 "
+                 "\nfk5\n")
+    for i in range(len(ra_possible_source)):
+        file_3.write(f"circle({ra_possible_source[i]},{dec_possible_source[i]},{0.0002778})\n")
     file_3.close()
     print("FILE CREATED\n")
 
@@ -447,7 +495,7 @@ def detect(zap,cat):
 
         k=0
         #np.nanmean(b) > -500 and np.nansum(b) > -20000
-        if np.nanmean(b) > -500 and np.nansum(b) > -20000:
+        if k==0:
 
             #for y in range(len(wavelengths)):
             #    if wavelengths[y] == 8998.75e-10:
@@ -616,13 +664,13 @@ def detect(zap,cat):
 
     wave_count = np.zeros(f['DATA'].header['NAXIS3'])
     wave_count_2=[]
-    for i in range(len(ra_edges_removed)):
-        for j in range(len(np.trim_zeros(wave_edges_removed[i]))):
+    for i in range(len(ra_possible_source)):
+        for j in range(len(np.trim_zeros(wave_possible_source[i]))):
             for k in range(len(wavelengths)):
 
-                if wavelengths[k] == wave_edges_removed[i][j]:
+                if wavelengths[k] == wave_possible_source[i][j]:
                     wave_count[k]+=1
-                    wave_count_2.append(wave_edges_removed[i][j])
+                    wave_count_2.append(wave_possible_source[i][j])
                 else:
                     continue
 
