@@ -4,6 +4,7 @@ import extinction
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 
 from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
@@ -311,7 +312,7 @@ def collapse_container(datacontainer,
         # generation of variance stemming from dataset
         med_cube = np.nanmedian(col_datacube)
         std_cube = np.nanstd(col_datacube - med_cube)
-        tmp_col_statcube =\
+        tmp_col_statcube = \
             np.zeros_like(col_datacube) + np.nanvar(col_datacube[(col_datacube - med_cube) < (var_thresh * std_cube)])
         if mask_z is not None:
             tmp_col_statcube[mask_z, :, :] = np.nan
@@ -523,7 +524,7 @@ def small_cube(datacontainer,
     Parameters
     ----------
     datacontainer : IFUcube object
-        data intialized in cubeClass.py
+        data initialized in cubeClass.py
     min_lambda : int, optional
         min channel to create collapsed image
     max_lambda : int, optional
@@ -680,6 +681,266 @@ def dust_correction(datacontainer):
         redstat[channel, :, :] *= (reddened_wave[channel] ** 2)
 
     return reddata, redstat
+
+
+def sb_profile(datacontainer,
+               x_pos,
+               y_pos,
+               rad_min=2.,
+               rad_max=30.,
+               r_bin=5.,
+               speed=500,
+               rest_lambda=1215.67,
+               pixel_scale=0.2,
+               log_bin=True,
+               z=None,
+               bad_pixel_mask=None,
+               bg_correct=True,
+               output='Object',
+               debug=False,
+               show_debug=False):
+    """Performing quick circular aperture photometry on an image
+    and extracting the surface brightness profile (including errors).
+    The average background will be estimated from the outer
+    annulus.
+    Parameters
+    ----------
+    datacontainer : IFUcube Object
+        dataset initialized in cubeClass
+    x_pos : float
+        x-location of the source in pixel
+    y_pos : float
+        y-location of the source in pixel
+    rad_min : float, optional
+        radius in pixel where to start to estimate the SB profile (default is 2.)
+    rad_max : float, optional
+        radius in pixel where to stop the estimate of the SB profile (default is 30.)
+    r_bin : float, optional
+        linear step in pixel to go from rad_min to rad_max (default is 5.)
+    speed : float, optional
+        estimated gas velocity to generate wavelength range to search (default 500 km/s)
+    rest_lambda : float, optional
+        rest frame wavelength for emission of interest
+        (default is LyA (1215.67 Ang))
+    pixel_scale : int, float, optional
+        instrument pixel scale correction (default 0.2)
+    log_bin : bool
+        if True, the bin will be equally spaced in log10 space
+        in this case, r_bin is considered as the size of the first bin
+        (default is True)
+    z : float
+        redshift value used to accurately calculate surface brightness
+    bad_pixel_mask : np.array
+        2D mask marking spatial pixels to be removed from the
+        profile extraction
+    bg_correct : bool
+        If True, the average value of the flux from the outer
+        bin will be subtracted from the data
+        (defualt is True)
+    output : string, optional
+        root file name for output (default is 'Object')
+    debug, show_debug : boolean, optional
+        runs debug sequence to display output of function (default False)
+
+    Returns
+    -------
+    radius, sb, var_sb : np.arrays
+        surface brightness profile and errors. The radius and
+        surface brightness are converted to arcseconds. (i.e.
+        are not in pixel units).
+    rad_diff : np.array
+        length of a bin in radius in arcseconds.
+    background_sb : np.array
+        1-sigma error for the background surface brightness
+        profile
+    sigma_background : float
+        average std for the outer ring
+    """
+
+    print("sb_profile: SB profile estimation")
+
+    # Removing NaNs and bad pixels
+    lambda_obs = (1. + z) * rest_lambda  # in Ang.
+    c = 299792.458  # in km/s
+    sb_min = lambda_obs * (1. - (speed / c))
+    sb_max = lambda_obs * (1. + (speed / c))
+    data_headers = datacontainer.get_data_header()
+
+    channel_min = int((sb_min - data_headers['CRVAL3']) / data_headers['CD3_3'])
+    channel_max = int((sb_max - data_headers['CRVAL3']) / data_headers['CD3_3'])
+
+    tmp_data, tmp_stat = collapse_container(datacontainer,
+                                            min_lambda=channel_min,
+                                            max_lambda=channel_max)
+    tmp_data = tmp_stat * 1.25
+    tmp_stat = tmp_stat * 1.25
+    data_copy = np.copy(tmp_data)
+
+    if bad_pixel_mask is not None:
+        print("sb_profile: removing bad pixels")
+        tmp_data[(bad_pixel_mask > 0)] = np.nan
+        tmp_stat[(bad_pixel_mask > 0)] = np.nan
+
+    img_good_pix = np.ones_like(tmp_data, dtype=float)
+    img_good_pix[(~np.isfinite(tmp_stat))] = float(0.)
+    img_good_pix[(~np.isfinite(tmp_data))] = float(0.)
+    tmp_stat[(~np.isfinite(tmp_stat))] = float(0.)
+    tmp_data[(~np.isfinite(tmp_data))] = float(0.)
+
+    # setting up arrays
+    if log_bin:
+        start_rad = np.log10(rad_min)
+        bin_rad = np.log10(rad_min + r_bin) - np.log10(rad_min)
+        end_rad = np.log10(rad_max)
+        log_min_rad = np.arange(start_rad, end_rad + bin_rad, bin_rad)
+        log_max_rad = log_min_rad + bin_rad
+        min_rad = log_min_rad ** 10
+        max_rad = log_max_rad ** 10
+        radius = (min_rad + 0.5 * (max_rad - min_rad)) * pixel_scale
+    else:
+        min_rad = np.arange(rad_min, rad_max + r_bin, r_bin)
+        max_rad = min_rad + r_bin
+        radius = (min_rad + 0.5 * r_bin) * pixel_scale
+    rad_diff = (max_rad - min_rad) * pixel_scale
+
+    print("sb_profile: {:0.0f} bins between R={:0.2f} and {:0.2f} arcsec".format(np.size(radius),
+                                                                                 min(min_rad) * 0.2,
+                                                                                 max(max_rad) * 0.2))
+
+    print("sb_profile: Checking for background stats")
+    outer_ann_mask = annular_mask(tmp_data,
+                                  x_pos=x_pos,
+                                  y_pos=y_pos,
+                                  semi_maj=min_rad[-1],
+                                  semi_min=min_rad[-1],
+                                  delta_maj=max_rad[-1] - min_rad[-1] - 2.,
+                                  delta_min=max_rad[-1] - min_rad[-1] - 2.,
+                                  theta=0.)
+    avg_data = np.nanmedian(tmp_data[(outer_ann_mask > 0) & (img_good_pix > 0.)])
+    avg_data_var = np.nanvar(tmp_data[(outer_ann_mask > 0) & (img_good_pix > 0.)])
+    avg_stat_var = np.nanmedian(tmp_stat[(outer_ann_mask > 0) & (img_good_pix > 0.)])
+    print("                the variance of the b/g DATA is: {:0.3f}".format(avg_data_var))
+    print("                the average variance of the b/g STAT is: {:0.3f}".format(avg_stat_var))
+    print("                the average of the b/g DATA is: {:0.3f}".format(avg_data))
+    var_ratio = avg_data_var / avg_stat_var
+    if ((var_ratio < 0.9) | (var_ratio > 1.1)) & (var_ratio > 0.):
+        print("sb_profile: Extra correction for STAT image of a factor {:0.3f}".format(var_ratio))
+        tmp_stat = tmp_stat * var_ratio
+    if bg_correct:
+        print("sb_profile: Extra correction for b/g counts applied : -{:0.3f} counts".format(avg_data))
+        tmp_data[(img_good_pix > 0)] = tmp_data[(img_good_pix > 0)] - avg_data
+    del var_ratio
+    del outer_ann_mask
+
+    sb = np.zeros_like(radius, dtype=float)
+    var_sb = np.copy(sb)
+    background_sb = np.copy(sb)
+
+    obj_pos = [x_pos, y_pos]
+
+    # Estimating background values
+    obj_ann = CircularAnnulus(obj_pos, r_in=min_rad[-1], r_out=max_rad[-1])
+    bg_aperture_var = aperture_photometry(tmp_stat, obj_ann)
+    bg_aperture_pix = aperture_photometry(img_good_pix, obj_ann)
+    pix_var_bg = float(np.array(bg_aperture_var['aperture_sum'][0]) / np.array(bg_aperture_pix['aperture_sum'][0]))
+
+    for rad_index in np.arange(0, np.size(min_rad)):
+        obj_ann = CircularAnnulus(obj_pos, r_in=min_rad[rad_index], r_out=max_rad[rad_index])
+
+        # Flux
+        flux_aperture = aperture_photometry(tmp_data, obj_ann)
+        # Variance
+        variance_aperture = aperture_photometry(tmp_stat, obj_ann)
+        # Pixels number
+        pixel_aperture = aperture_photometry(img_good_pix, obj_ann)
+
+        sb[rad_index] = float(np.array(flux_aperture['aperture_sum'][0]) / (
+                pixel_scale * pixel_scale * np.array(pixel_aperture['aperture_sum'][0])))
+        var_sb[rad_index] = float(np.sqrt(np.array(variance_aperture['aperture_sum'][0])) / (
+                pixel_scale * pixel_scale * np.array(pixel_aperture['aperture_sum'][0])))
+        background_sb[rad_index] = float(np.sqrt(pix_var_bg * np.array(pixel_aperture['aperture_sum'][0])) / (
+                pixel_scale * pixel_scale * np.array(pixel_aperture['aperture_sum'][0])))
+
+    sigma_background = np.sqrt(pix_var_bg) / (pixel_scale * pixel_scale)
+
+    if debug:
+
+        print("sb_profile: Creating debug image")
+
+        nice_plot()
+
+        plt.figure(1, figsize=(12, 6))
+
+        ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
+        ax_mask = plt.subplot2grid((1, 2), (0, 1), colspan=1)
+
+        # Plotting field image
+        ax_image.imshow(data_copy / (pixel_scale * pixel_scale),
+                        cmap="Greys", origin="lower",
+                        vmin=-1. * sigma_background,
+                        vmax=+3. * sigma_background)
+        ax_image.set_xlabel(r"X [Pixels]", size=30)
+        ax_image.set_ylabel(r"Y [Pixels]", size=30)
+        ax_image.set_xlim(left=x_pos - max_rad[-1], right=x_pos + max_rad[-1])
+        ax_image.set_ylim(bottom=y_pos - max_rad[-1], top=y_pos + max_rad[-1])
+        ax_image.set_title(r"Data")
+
+        for idxRadius in np.arange(0, np.size(radius)):
+            min_artist = Ellipse(xy=(x_pos, y_pos),
+                                 width=2. * min_rad[idxRadius],
+                                 height=2. * min_rad[idxRadius],
+                                 angle=0.)
+            min_artist.set_facecolor("none")
+            min_artist.set_edgecolor("red")
+            min_artist.set_alpha(0.5)
+            max_artist = Ellipse(xy=(x_pos, y_pos),
+                                 width=2. * max_rad[idxRadius],
+                                 height=2. * max_rad[idxRadius],
+                                 angle=0.)
+            max_artist.set_facecolor("none")
+            max_artist.set_edgecolor("blue")
+            max_artist.set_alpha(0.5)
+            ax_image.add_artist(min_artist)
+            ax_image.add_artist(max_artist)
+
+        # Plotting mask image
+        ax_mask.imshow(img_good_pix - 1,
+                       cmap="Greys_r", origin="lower",
+                       vmin=-1,
+                       vmax=0)
+        ax_mask.set_xlabel(r"X [Pixels]", size=30)
+        ax_mask.set_ylabel(r"Y [Pixels]", size=30)
+        ax_mask.set_xlim(left=x_pos - max_rad[-1], right=x_pos + max_rad[-1])
+        ax_mask.set_ylim(bottom=y_pos - max_rad[-1], top=y_pos + max_rad[-1])
+        ax_mask.set_title(r"Excluded Pixels Mask")
+
+        for idxRadius in np.arange(0, np.size(radius)):
+            min_artist = Ellipse(xy=(x_pos, y_pos),
+                                 width=2. * min_rad[idxRadius],
+                                 height=2. * min_rad[idxRadius],
+                                 angle=0.)
+            min_artist.set_facecolor("none")
+            min_artist.set_edgecolor("red")
+            min_artist.set_alpha(0.5)
+            max_artist = Ellipse(xy=(x_pos, y_pos),
+                                 width=2. * max_rad[idxRadius],
+                                 height=2. * max_rad[idxRadius],
+                                 angle=0.)
+            max_artist.set_facecolor("none")
+            max_artist.set_edgecolor("blue")
+            max_artist.set_alpha(0.5)
+            ax_mask.add_artist(min_artist)
+            ax_mask.add_artist(max_artist)
+
+        print("sb_profile: debug image saved in {}_SBProfile.pdf".format(output))
+        plt.tight_layout()
+        plt.savefig(output + "_SBProfile.pdf", dpi=400.,
+                    format="pdf", bbox_inches="tight")
+        if show_debug:
+            plt.show()
+        plt.close()
+
+    return radius, sb, var_sb, rad_diff, background_sb, sigma_background
 
 
 def quick_ap_photometry(datacopy,
