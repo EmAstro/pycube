@@ -25,7 +25,7 @@ def smooth_chicube(datacontainer,
                    s_smooth=1.,
                    v_smooth=1.,
                    truncate=5.):
-    """Given a (PSF subtracted) IFUcube, the macro smooth both
+    """Given a (PSF subtracted) IFUcube, the macro smooths both
     the datacube and the statcube with a 3D gaussian Kernel.
     The same sigma is considered in both spatial axes
     (a_smooth), while a different one can be set for the
@@ -41,9 +41,9 @@ def smooth_chicube(datacontainer,
     .. math::
         chi\_cube = \\frac{datacube}{\sqrt{(statcube)}}
 
-    Given that scipy has hard time to deal with NaNs, NaNs
+    Given that scipy has a hard time to deal with NaNs, NaN
     values in the dataCube are converted to zeroes, while the
-    NaNs in the statCube to nanmax(statcube).
+    NaNs in the statCube are converted to nanmax(statcube).
 
     Parameters
     ----------
@@ -268,7 +268,7 @@ def halo_mask(chi_cube,
         ax_hist = plt.subplot2grid((1, 2), (0, 1), colspan=1)
 
         # Plotting field image
-        ax_image.imshow(chicopy[np.int(z_max / 2.), :, :],
+        ax_image.imshow(chicopy[int(z_max / 2.), :, :],
                         cmap="Greys", origin="lower",
                         vmin=chi_cube_med - 3. * chi_cube_sig,
                         vmax=chi_cube_med + 3. * chi_cube_sig)
@@ -383,7 +383,7 @@ def halo_mask(chi_cube,
         print("          The location of this voxel is marked with a red circle")
         print("          The position of the quasar is in blue")
 
-        manip.nice_plot()
+        #manip.nice_plot()
 
         mask_halo_2D, mask_halo_min_z, mask_halo_max_z = spectral_mask_halo(mask_halo)
 
@@ -602,6 +602,7 @@ def make_moments(datacontainer,
                  truncate=5.,
                  debug=False,
                  show_debug=False,
+                 debug_cmap='Greys',
                  output='Object'):
     """ Given a PSF-Subtracted datacube, this macro extracts the moment 0, 1, 2
     maps of the halo identified by mask_halo.
@@ -651,6 +652,8 @@ def make_moments(datacontainer,
         is truncated
     debug, show_debug : boolean, optional
         runs debug sequence to display output of function (default False)
+    debug_cmap : string, optional
+        color map for debug output (default 'Greys')
     output : str, optional
         Output name of saved figure if running show_debug
 
@@ -744,7 +747,7 @@ def make_moments(datacontainer,
         print("make_moments: showing debug image:")
         print("             spectrum and optimally extracted spectrum")
 
-        manip.nice_plot()
+        #manip.nice_plot()
 
         # Setting limits for halo image
         channel_y = np.arange(0, y_max, 1, int)
@@ -760,7 +763,7 @@ def make_moments(datacontainer,
         ax_spec = plt.subplot2grid((1, 3), (0, 1), colspan=2)
 
         ax_imag.imshow(mom0,
-                       cmap="Greys", origin="lower")
+                       cmap=debug_cmap, origin="lower")
         ax_imag.set_xlim(left=min_x_mask, right=max_x_mask)
         ax_imag.set_ylim(bottom=min_y_mask, top=max_y_mask)
         ax_imag.set_xlabel(r"X [Pixels]", size=30)
@@ -792,29 +795,32 @@ def make_moments(datacontainer,
         ax_mom2 = plt.subplot2grid((1, 3), (0, 2), colspan=1)
 
         img_mom0 = ax_mom0.imshow(mom0,
-                                  cmap="Greys", origin="lower")
+                                  cmap=debug_cmap, origin="lower")
         ax_mom0.set_xlim(left=min_x_mask, right=max_x_mask)
         ax_mom0.set_ylim(bottom=min_y_mask, top=max_y_mask)
+        ax_mom0.title.set_text("Flux")
         ax_mom0.set_xlabel(r"X [Pixels]", size=30)
         ax_mom0.set_ylabel(r"Y [Pixels]", size=30)
         cb_mom0 = plt.colorbar(img_mom0, ax=ax_mom0, shrink=0.5)
 
         img_mom1 = ax_mom1.imshow(mom1,
-                                  cmap="Greys", origin="lower",
+                                  cmap=debug_cmap, origin="lower",
                                   vmin=-0.5 * np.nanmax(mom1),
                                   vmax=+0.5 * np.nanmax(mom1))
         ax_mom1.set_xlim(left=min_x_mask, right=max_x_mask)
         ax_mom1.set_ylim(bottom=min_y_mask, top=max_y_mask)
+        ax_mom1.title.set_text("Velocity")
         ax_mom1.set_xlabel(r"X [Pixels]", size=30)
         ax_mom1.set_ylabel(r"Y [Pixels]", size=30)
         cb_mom1 = plt.colorbar(img_mom1, ax=ax_mom1, shrink=0.5)
 
         img_mom2 = ax_mom2.imshow(mom2,
-                                  cmap="Greys", origin="lower",
+                                  cmap=debug_cmap, origin="lower",
                                   vmin=0.,
                                   vmax=+0.9 * np.nanmax(mom2))
         ax_mom2.set_xlim(left=min_x_mask, right=max_x_mask)
         ax_mom2.set_ylim(bottom=min_y_mask, top=max_y_mask)
+        ax_mom2.title.set_text('Velocity Disp.')
         ax_mom2.set_xlabel(r"X [Pixels]", size=30)
         ax_mom2.set_ylabel(r"Y [Pixels]", size=30)
         cb_mom2 = plt.colorbar(img_mom2, ax=ax_mom2, shrink=0.5)
