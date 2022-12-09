@@ -1067,6 +1067,7 @@ def create_psf(datacontainer,
                min_lambda=None,
                max_lambda=None,
                mask_z=None,
+               output=None,
                radius_pos=2.,
                inner_rad=10.,
                outer_rad=15.,
@@ -1074,9 +1075,10 @@ def create_psf(datacontainer,
                c_type="sum",
                norm=True,
                debug=False,
-               show_debug=False):
+               show_debug=False,
+               save_debug=False):
     """Given an IFUcube, or 3D data and variance arrays, the macro collapses
-    it's data and variance along the z-axis between min_lambda and
+    its data and variance along the z-axis between min_lambda and
     max_lambda. If mask_z is given, channels masked as 1 (or True) are removed.
     if c_type is set to 'average', the macro uses the stat information to perform a
     weighted mean along the velocity axis. In other words, each spaxel of the resulting
@@ -1225,9 +1227,11 @@ def create_psf(datacontainer,
 
         plt.tight_layout()
         if show_debug:
+            if save_debug:
+                plt.savefig(output + "_psf_model.pdf", dpi=400.,
+                            format="pdf", bbox_inches="tight")
             plt.show()
-        plt.close()
-
+    plt.close()
     gc.collect()
     return psf_data, psf_stat
 
