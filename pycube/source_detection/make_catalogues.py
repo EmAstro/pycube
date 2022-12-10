@@ -296,7 +296,7 @@ def detect(zap,cat,dir):
         t = np.trim_zeros(wave_edges_removed[i])
         t = np.asarray(t)
         for j in range(len(t)):
-            if 7.75125e-7 < t[j] < 9.200e-7:
+            if 7.75125e-7 < t[j] < 9.300e-7:
                 m = m + 1
             else:
                 continue
@@ -383,15 +383,15 @@ def detect(zap,cat,dir):
     #cube.data = cube.data * wave_step
 
 
-
-    delta_lbda_100 = int((1e2 / 3e5) * 9001.)
-    delta_lbda_200 = int((2e2 / 3e5) * 9001.)
-    delta_lbda_500 = int((5e2 / 3e5) * 9001.)
-    delta_lbda_1000 = int((1e3 / 3e5) * 9001.)
-    lbda_range_100 = np.asarray([9001. - delta_lbda_100, 9001. + delta_lbda_100])
-    lbda_range_200 = np.asarray([9001. - delta_lbda_200, 9001. + delta_lbda_200])
-    lbda_range_500 = np.asarray([9001. - delta_lbda_500, 9001. + delta_lbda_500])
-    lbda_range_1000 = np.asarray([9001. - delta_lbda_1000, 9001. + delta_lbda_1000])
+    wave_search = 9001.
+    delta_lbda_100 = int((1e2 / 3e5) * wave_search)
+    delta_lbda_200 = int((2e2 / 3e5) * wave_search)
+    delta_lbda_500 = int((5e2 / 3e5) * wave_search)
+    delta_lbda_1000 = int((1e3 / 3e5) * wave_search)
+    lbda_range_100 = np.asarray([wave_search - delta_lbda_100, wave_search + delta_lbda_100])
+    lbda_range_200 = np.asarray([wave_search - delta_lbda_200, wave_search + delta_lbda_200])
+    lbda_range_500 = np.asarray([wave_search - delta_lbda_500, wave_search + delta_lbda_500])
+    lbda_range_1000 = np.asarray([wave_search - delta_lbda_1000, wave_search + delta_lbda_1000])
 
     channel_range_100=np.asarray([np.int64((lbda_range_100[0] - 7500) / 1.25)+1, np.int64((lbda_range_100[1] - 7500) / 1.25) + 1])
     channel_range_200=np.asarray([np.int64((lbda_range_200[0] - 7500) / 1.25)+1, np.int64((lbda_range_200[1] - 7500) / 1.25) + 1])
