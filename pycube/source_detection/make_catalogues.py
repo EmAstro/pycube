@@ -20,6 +20,7 @@ def detect(zap,cat,dir):
     w1 = wcs.WCS(f[1].header)
     hdr = f[1].header  # to get data header info
     r = 0.0002222
+    WAVE_SCALE=1.25
 
     print("Creating Main Directory in Desktop")
     directory = dir
@@ -32,6 +33,69 @@ def detect(zap,cat,dir):
             dir_path)  # Removes all the subdirectories! (use for cleaning up the old directory and create a new on)
         os.makedirs(dir_path)
     print(f"DETECTION DIRECTORY CREATED\n")
+
+    def collapseCube(dataCube, statCube=None, minChannel=None, maxChannel=None, maskZ=None, toFlux=True):
+        if toFlux:
+            scaleFactor = WAVE_SCALE
+            print("collapseCube: Output converted to erg/s/cm**2.")
+            print("              (i.e. multiplied by {} Ang.)".format(scaleFactor))
+        else:
+            scaleFactor = 1.
+
+        tempDataCube = np.copy(dataCube)
+        zMax, yMax, xMax = np.shape(tempDataCube)
+        if statCube is not None:
+            tempStatCube = np.copy(statCube)
+
+        if (minChannel is not None) & (maxChannel is not None):
+            minChannelSort = np.min([minChannel, maxChannel])
+            maxChannelSort = np.max([minChannel, maxChannel])
+            minChannel, maxChannel = minChannelSort, maxChannelSort
+            del minChannelSort
+            del maxChannelSort
+        if minChannel is None:
+            print("collapseCube: minChannel set to 0")
+            minChannel = np.int(0)
+        if maxChannel is None:
+            print("collapseCube: maxChannel set to {}".format(np.int(zMax)))
+            maxChannel = np.int(zMax)
+        if minChannel < 0:
+            print("collapseCube: Negative value for minChannel set to 0")
+            minChannel = np.int(0)
+        if maxChannel > (zMax + 1):
+            print("collapseCube: maxChannel is outside the cube size. Set to {}".format(np.int(zMax)))
+            maxChannel = np.int(zMax)
+        if maskZ is not None:
+            tempDataCube[maskZ, :, :] = np.nan
+            if statCube is not None:
+                tempStatCube[maskZ, :, :] = np.nan
+
+        collapsedDataImage = np.nansum(tempDataCube[minChannel:maxChannel, :, :] * scaleFactor, axis=0)
+        if statCube is not None:
+            collapsedStatImage = np.nansum(tempStatCube[minChannel:maxChannel, :, :] * scaleFactor * scaleFactor,
+                                           axis=0)  # *np.sqrt((maxChannel-minChannel))/1.25/1.25
+        else:
+            print("collapseCube: Stat image will be created from a rough")
+            print("              estimate of the background noise")
+            # This is to remove brightes sources.
+            medImage = np.nanmedian(collapsedDataImage)
+            stdImage = np.nanstd(collapsedDataImage - medImage)
+            collapsedStatImage = np.zeros_like(collapsedDataImage) + np.nanvar(
+                collapsedDataImage[(collapsedDataImage - medImage) < (5. * stdImage)])
+            del medImage
+            del stdImage
+        print("collapseCube: Images produced")
+
+        # Deleting temporary cubes to clear up memory
+        del tempDataCube
+        if statCube is not None:
+            del tempStatCube
+        del scaleFactor
+
+        return collapsedDataImage, collapsedStatImage
+
+
+
 
     print("")
     print("CREATING WHITE IMAGE")
@@ -329,6 +393,12 @@ def detect(zap,cat,dir):
     lbda_range_500 = np.asarray([9001. - delta_lbda_500, 9001. + delta_lbda_500])
     lbda_range_1000 = np.asarray([9001. - delta_lbda_1000, 9001. + delta_lbda_1000])
 
+    channel_range_100=np.asarray([np.int64((lbda_range_100[0] - 7500) / 1.25)+1, np.int64((lbda_range_100[1] - 7500) / 1.25) + 1])
+    channel_range_200=np.asarray([np.int64((lbda_range_200[0] - 7500) / 1.25)+1, np.int64((lbda_range_200[1] - 7500) / 1.25) + 1])
+    channel_range_500=np.asarray([np.int64((lbda_range_500[0] - 7500) / 1.25)+1, np.int64((lbda_range_500[1] - 7500) / 1.25) + 1])
+    channel_range_1000=np.asarray([np.int64((lbda_range_1000[0] - 7500) / 1.25)+1, np.int64((lbda_range_1000[1] - 7500) / 1.25) + 1])
+
+
     print("")
     print("")
     print("CREATING IMAGES")
@@ -457,16 +527,13 @@ def detect(zap,cat,dir):
 
             print(" ")
 
-
-
-
-
-            return specApPhot,np.power(specVarApPhot, 0.5)
+            specApPhot=np.asarray(specApPhot)
+            specVarApPhot=np.asarray(specVarApPhot)
+            return specApPhot,np.power((specVarApPhot), 0.5)
 
         flux, err = spectra_extraction(ra_img_pix, dec_img_pix)
-        flux = np.asarray(flux)
-        err = np.asarray(err)
-        flux = flux * wave_step
+
+
 
 
         for y in range(len(wavelengths)):
@@ -526,11 +593,23 @@ def detect(zap,cat,dir):
             img_narrow_band_500_test = sub_cube_test.get_image((lbda_range_500[0], lbda_range_500[1]), method='sum')
             img_narrow_band_1000_test = sub_cube_test.get_image((lbda_range_1000[0], lbda_range_1000[1]), method='sum')
 
+
+
+            img_broad_band_test.data,img_broad_band_test.var = collapseCube(dataCube=sub_cube_test.data, statCube=sub_cube_test.var,minChannel=1,maxChannel=965)
+            img_narrow_band_100_test.data, img_narrow_band_100_test.var = collapseCube(dataCube=sub_cube_test.data,statCube=sub_cube_test.var,minChannel=channel_range_100[0],maxChannel=channel_range_100[1])
+            img_narrow_band_200_test.data, img_narrow_band_200_test.var = collapseCube(dataCube=sub_cube_test.data,statCube=sub_cube_test.var,minChannel=channel_range_200[0],maxChannel=channel_range_200[1])
+            img_narrow_band_500_test.data, img_narrow_band_500_test.var = collapseCube(dataCube=sub_cube_test.data,statCube=sub_cube_test.var,minChannel=channel_range_500[0],maxChannel=channel_range_500[1])
+            img_narrow_band_1000_test.data, img_narrow_band_1000_test.var = collapseCube(dataCube=sub_cube_test.data,statCube=sub_cube_test.var,minChannel=channel_range_1000[0],maxChannel=channel_range_1000[1])
+
+
+
             s2n_broad_band_test = img_broad_band_test.copy()
             s2n_narrow_band_100_test = img_narrow_band_100_test.copy()
             s2n_narrow_band_200_test = img_narrow_band_200_test.copy()
             s2n_narrow_band_500_test = img_narrow_band_500_test.copy()
             s2n_narrow_band_1000_test = img_narrow_band_1000_test.copy()
+
+
 
             smooth_s2n_broad_band_test = img_broad_band_test.copy()
             smooth_s2n_narrow_band_100_test = img_narrow_band_100_test.copy()
@@ -559,7 +638,7 @@ def detect(zap,cat,dir):
                 del statSigma
                 return dataTmp/np.sqrt(statTmp),sDataImage/np.sqrt(sStatImage)
 
-            s2n_broad_band_test.data, smooth_s2n_broad_band_test.data=s2n_smooth(s2n_broad_band_test.data,s2n_broad_band_test.var)
+            s2n_broad_band_test.data, smooth_s2n_broad_band_test.data=s2n_smooth(s2n_broad_band_test.data ,s2n_broad_band_test.var)
             s2n_narrow_band_100_test.data, smooth_s2n_narrow_band_100_test.data = s2n_smooth(s2n_narrow_band_100_test.data,s2n_narrow_band_100_test.var)
             s2n_narrow_band_200_test.data, smooth_s2n_narrow_band_200_test.data = s2n_smooth(s2n_narrow_band_200_test.data, s2n_narrow_band_200_test.var)
             s2n_narrow_band_500_test.data, smooth_s2n_narrow_band_500_test.data = s2n_smooth(s2n_narrow_band_500_test.data,s2n_narrow_band_500_test.var)
