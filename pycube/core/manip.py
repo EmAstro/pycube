@@ -20,39 +20,6 @@ from astroquery.irsa_dust import IrsaDust
 
 from pycube import cubeClass
 
-
-def nice_plot():
-    """OBSOLETE
-    """
-
-    print("DO NOT USE THIS")
-    plt.rcParams["xtick.top"] = True
-    plt.rcParams["ytick.right"] = True
-    plt.rcParams["xtick.minor.visible"] = True
-    plt.rcParams["ytick.minor.visible"] = True
-    plt.rcParams["ytick.direction"] = 'in'
-    plt.rcParams["xtick.direction"] = 'in'
-    plt.rcParams["xtick.major.size"] = 6
-    plt.rcParams["ytick.major.size"] = 6
-    plt.rcParams["xtick.minor.size"] = 3
-    plt.rcParams["ytick.minor.size"] = 3
-    plt.rcParams["xtick.labelsize"] = 30
-    plt.rcParams["ytick.labelsize"] = 30
-    plt.rcParams["xtick.major.width"] = 1
-    plt.rcParams["ytick.major.width"] = 1
-    plt.rcParams["xtick.minor.width"] = 1
-    plt.rcParams["ytick.minor.width"] = 1
-    plt.rcParams["axes.linewidth"] = 2
-    plt.rcParams["axes.labelsize"] = 25
-    plt.rcParams["lines.linewidth"] = 3
-    plt.rcParams["lines.markeredgewidth"] = 3
-    plt.rcParams["patch.linewidth"] = 5
-    plt.rcParams["hatch.linewidth"] = 5
-    plt.rcParams["font.size"] = 30
-    plt.rcParams["legend.frameon"] = True
-    plt.rcParams["legend.handletextpad"] = 1
-
-
 def find_sigma(data):
     """Simple expression to calculate Sigma quickly. Taking square root of the median value of an array.
 
@@ -161,7 +128,9 @@ def convert_to_channel(datacontainer,
 def collapse_cube(datacube,
                   min_lambda=None,
                   max_lambda=None,
-                  mask_z=None):
+                  mask_z=None,
+                  to_flux=True,
+                  flux_val=1.25):
     """ Given a 3D data/stat cube .FITS file, this function collapses along the z-axis given a range of values.
     If mask_z is specified, the function will remove all channels masked as 1.
 
@@ -175,6 +144,10 @@ def collapse_cube(datacube,
         Maximum wavelength to collapse file
     mask_z : np.array, optional
         range of z-axis values to mask when collapsing
+    to_flux : boolean, optional
+        converts collapsed data to flux values - erg/s/cm**2 (default is True)
+    flux_val : float, optional
+        value for flux conversion (default is 1.25 Angs.)
 
     Returns
     -------
@@ -197,7 +170,11 @@ def collapse_cube(datacube,
         datacopy[mask_z, :, :] = np.nan
 
     # Sums values between specifications, ignoring NaNs
-    col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
+    if to_flux:
+        col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :]*flux_val, axis=0)
+    else:
+        col_cube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
+
     del datacopy
     del z_max, y_max, x_max
     return col_cube
@@ -207,7 +184,9 @@ def collapse_mean_cube(datacube,
                        statcube,
                        min_lambda=None,
                        max_lambda=None,
-                       mask_z=None):
+                       mask_z=None,
+                       to_flux=True,
+                       flux_val=1.25):
     """Given 3D arrays of data and variance, this function collapses it along the
     z-axis between min_lambda and max_lambda. If mask_z is given, channels masked
     as 1 (or True) are removed. The macro uses the stat information to perform a
@@ -226,6 +205,10 @@ def collapse_mean_cube(datacube,
         maximum wavelength to collapse cube
     mask_z : np.array
         if specified, channels masked as 1 will be removed when collapsed
+    to_flux : boolean, optional
+        converts collapsed data to flux values - erg/s/cm**2 (default is True)
+    flux_val : float, optional
+        value for flux conversion (default is 1.25 Angs.)
 
     Returns
     -------
@@ -234,9 +217,11 @@ def collapse_mean_cube(datacube,
     """
 
     temp_collapsed_data = collapse_cube(datacube, min_lambda,
-                                        max_lambda, mask_z=mask_z)
+                                        max_lambda, mask_z=mask_z,
+                                        to_flux=to_flux, flux_val=flux_val)
     temp_collapsed_stat = collapse_cube(statcube, min_lambda,
-                                        max_lambda, mask_z=mask_z)
+                                        max_lambda, mask_z=mask_z,
+                                        to_flux=to_flux, flux_val=flux_val)
 
     temp_collapsed_stat = 1. / temp_collapsed_stat
     bad_pix = np.isnan(temp_collapsed_data) | np.isnan(temp_collapsed_stat)
@@ -264,6 +249,8 @@ def collapse_container(datacontainer,
                        min_lambda=None,
                        max_lambda=None,
                        mask_z=None,
+                       to_flux=True,
+                       flux_val=1.25,
                        var_thresh=5.):
     """ Given an IFUcube, this function collapses along the z-axis given a range of values.
     If mask_z is specified, it will remove values masked as 1. If no variance (stat) data exists,
@@ -279,6 +266,10 @@ def collapse_container(datacontainer,
         Maximum wavelength
     mask_z : np.array, optional
         range of z-axis values that the user can mask in the datacube
+    to_flux : boolean, optional
+        converts collapsed data to flux values - erg/s/cm**2 (default is True)
+    flux_val : float, optional
+        value for flux conversion (default is 1.25 Angs.)
     var_thresh : int, float, optional
         if no variance in container, this value determines standard deviation threshold
          to create variance cube from data (default is 5.)
@@ -287,6 +278,7 @@ def collapse_container(datacontainer,
     -------
     np.array
         Condensed 2D array of 3D file.
+
     """
     # pulls information from IFU object
     datacopy, statcopy = datacontainer.get_data_stat()
@@ -302,12 +294,20 @@ def collapse_container(datacontainer,
         print("collapse_container: Invalid / unspecified minimum wavelength. Min value is set to 0")
     if mask_z is not None:
         datacopy[mask_z, :, :] = np.nan
-    col_datacube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
+
+    if to_flux:
+        col_datacube = np.nansum(datacopy[min_lambda:max_lambda, :, :]*flux_val, axis=0)
+    else:
+        col_datacube = np.nansum(datacopy[min_lambda:max_lambda, :, :], axis=0)
 
     if statcopy is not None:
         if mask_z is not None:
             statcopy[mask_z, :, :] = np.nan
-        col_statcube = np.nansum(statcopy[min_lambda:max_lambda, :, :], axis=0)
+        if to_flux:
+            col_statcube = np.nansum(statcopy[min_lambda:max_lambda, :, :]*flux_val, axis=0)
+        else:
+            col_statcube = np.nansum(statcopy[min_lambda:max_lambda, :, :], axis=0)
+
     else:
         # generation of variance stemming from dataset
         med_cube = np.nanmedian(col_datacube)
@@ -316,7 +316,11 @@ def collapse_container(datacontainer,
             np.zeros_like(col_datacube) + np.nanvar(col_datacube[(col_datacube - med_cube) < (var_thresh * std_cube)])
         if mask_z is not None:
             tmp_col_statcube[mask_z, :, :] = np.nan
-        col_statcube = np.nansum(tmp_col_statcube[min_lambda:max_lambda, :, :], axis=0)
+        if to_flux:
+            col_statcube = np.nansum(tmp_col_statcube[min_lambda:max_lambda, :, :]*flux_val, axis=0)
+        else:
+            col_statcube = np.nansum(tmp_col_statcube[min_lambda:max_lambda, :, :], axis=0)
+
 
         del tmp_col_statcube
         del med_cube
@@ -703,6 +707,7 @@ def sb_profile(datacontainer,
     and extracting the surface brightness profile (including errors).
     The average background will be estimated from the outer
     annulus.
+
     Parameters
     ----------
     datacontainer : IFUcube Object
@@ -736,7 +741,7 @@ def sb_profile(datacontainer,
     bg_correct : bool
         If True, the average value of the flux from the outer
         bin will be subtracted from the data
-        (defualt is True)
+        (default is True)
     output : string, optional
         root file name for output (default is 'Object')
     debug, show_debug : boolean, optional
@@ -866,8 +871,6 @@ def sb_profile(datacontainer,
     if debug:
 
         print("sb_profile: Creating debug image")
-
-        nice_plot()
 
         plt.figure(1, figsize=(12, 6))
 

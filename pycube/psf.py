@@ -19,6 +19,8 @@ import gc
 def find_sources(datacontainer, statcube=None,
                  min_lambda=None, max_lambda=None,
                  mask_z=None,
+                 to_flux=True,
+                 flux_val=1.25,
                  var_factor=5.,
                  threshold=4.,
                  sig_detect=2.,
@@ -39,6 +41,10 @@ def find_sources(datacontainer, statcube=None,
         maximum wavelength value to collapse 3D image (default is None)
     mask_z : np.array
         range of z-axis values that the user can mask in the datacube during collapsing (default is None)
+    to_flux : boolean, optional
+        converts collapsed data to flux values - erg/s/cm**2 (default is False)
+    flux_val : float, optional
+        value for flux conversion (default is 1.25 Angs.)
     var_factor : int, float, optional
         affects generated variance, if variance is auto-generated from image data (default is 5.)
     threshold : int, float, optional
@@ -70,12 +76,15 @@ def find_sources(datacontainer, statcube=None,
     if statcube is None:
         data_background, var_background = manip.collapse_container(datacontainer, min_lambda=min_lambda,
                                                                    max_lambda=max_lambda, mask_z=mask_z,
+                                                                   to_flux=to_flux,flux_val=flux_val,
                                                                    var_thresh=var_factor)
     else:
         datacopy = datacontainer
-        data_background = manip.collapse_cube(datacopy, min_lambda=min_lambda, max_lambda=max_lambda, mask_z=mask_z)
+        data_background = manip.collapse_cube(datacopy, min_lambda=min_lambda, max_lambda=max_lambda,
+                                              mask_z=mask_z, to_flux=to_flux, flux_val=flux_val)
         statcopy = statcube
-        var_background = manip.collapse_cube(statcopy, min_lambda=min_lambda, max_lambda=max_lambda, mask_z=mask_z)
+        var_background = manip.collapse_cube(statcopy, min_lambda=min_lambda, max_lambda=max_lambda,
+                                             mask_z=mask_z, to_flux=to_flux, flux_val=flux_val)
 
     # background smoothing with seXtractor which utilizes sep
     image_background = background.sextractor_background(data_background, var_background, threshold)
@@ -476,7 +485,6 @@ def subtract_bg(datacontainer,
             statcopy[channel, :, :] *= scale_factor[channel]
         print("subtract_bg: The average correction factor for variance is {:.5f}".format(np.average(scale_factor)))
         if debug:
-            manip.nice_plot()
             plt.figure(1, figsize=(9, 6))
             plt.plot(range(0, z_max), scale_factor, color='black')
             plt.xlabel(r"Channels")
@@ -490,7 +498,6 @@ def subtract_bg(datacontainer,
 
         print("subtract_bg: The average value subtracted to the b/g level is {:.5f}".format(np.average(bg_median)))
         if debug:
-            manip.nice_plot()
             plt.figure(1, figsize=(9, 6))
             plt.plot(range(0, z_max), bg_median, color='black')
             plt.xlabel(r"Channels")
@@ -506,8 +513,9 @@ def subtract_bg(datacontainer,
     return datacopy, statcopy, bg_average, bg_median, bg_std, bg_var, bg_pixels, bg_mask_2d
 
 
-def sources_fg(datacube,
-               statcube=None,
+def sources_fg(datacontainer,
+               min_lambda=None,
+               max_lambda=None,
                sig_source_detect=5.0,
                min_source_area=16.,
                source_mask_size=6.,
@@ -523,10 +531,8 @@ def sources_fg(datacube,
 
     Parameters
     ----------
-    datacube : np.array
-        data in a 2D array
-    statcube : np.array
-        variance in a 2D array
+    datacontainer : IFU cube
+        IFU cube object initialized in Pycube
     sig_source_detect : float
         detection sigma threshold for sources in the
         collapsed cube. Defaults is 5.0
@@ -566,12 +572,21 @@ def sources_fg(datacube,
     fgBackgroundFlux, fgBackgroundSigma : float
         Average background flux and sigma after source extractions
     """
+    print('sources_fg: Extrapolating data and error from datacontainer')
+    data_raw = datacontainer.get_data()
+    datacube, statcube = manip.collapse_container(datacontainer, min_lambda, max_lambda)
 
     print("sources_fg: Searching for sources in the image")
-    y_max, x_max = np.shape(datacube)
-    fg_xpos, fg_ypos, fg_maj, fg_min, fg_angle, fg_all_sources = find_sources(datacube, statcube,
-                                                                              sig_detect=sig_source_detect,
-                                                                              min_area=min_source_area)
+    z_max, y_max, x_max = np.shape(data_raw)
+    fg_xpos, fg_ypos, fg_maj, fg_min, fg_angle, fg_all_sources = find_sources(datacontainer, statcube=None,
+                                                                              min_lambda=min_lambda,
+                                                                              max_lambda=max_lambda,
+                                                                              mask_z=None,
+                                                                              var_factor=5.,
+                                                                              threshold=4.,
+                                                                              sig_detect=2.,
+                                                                              min_area=3.,
+                                                                              deblend_val=0.005)
     print("sources_fg: Detected {} sources".format(len(fg_xpos)))
 
     print("sources_fg: Perform some cleaning on the detected sources")
@@ -594,17 +609,20 @@ def sources_fg(datacube,
 
     # removing extreme values. This mask is 0 if it is a good pixel,
     # 1 if it is a pixel with an extreme value
+    '''
     extreme_mask = np.ones_like(sky_mask, int)
     fg_flux = np.nanmedian(fg_datacopy)
     fg_sigma = np.nanstd(fg_datacopy)
     extreme_mask[np.abs((datacube - fg_flux) / fg_sigma) < 2.99] = 0
     fg_datacopy[(extreme_mask == 1)] = np.nan
-
+    '''
     # Checking values of the background
     fg_flux = np.nanmedian(fg_datacopy)
     fg_sigma = np.nanstd(fg_datacopy)
     fg_data_hist, fg_data_edges = np.histogram(fg_datacopy[np.isfinite(fg_datacopy)].flatten(),
                                                bins="fd", density=True)
+    from IPython import embed
+    embed()
     # fitting of the histogram
     gauss_best, gauss_covar = curve_fit(manip.gaussian,
                                         fg_data_edges[:-1],
@@ -635,7 +653,6 @@ def sources_fg(datacube,
     fg_min = fg_min[fg_bright]
     fg_angle = fg_angle[fg_bright]
     print("sources_fg: Detected {} sources above {} sigma at the center".format(len(fg_xpos), .5 * sig_source_detect))
-
     # Remove sources at the edge of the FOV
     fg_x_loc = (fg_xpos > edges) & (fg_xpos < (x_max - edges))
     fg_y_loc = (fg_ypos > edges) & (fg_ypos < (y_max - edges))
@@ -664,6 +681,7 @@ def sources_fg(datacube,
     fg_maj = fg_maj[fg_shape]
     fg_min = fg_min[fg_shape]
     fg_angle = fg_angle[fg_shape]
+
     print("sources_fg: Removing sources with size larger than {}".format(max_source_size))
     print("sources_fg: Removing sources with ellipticity larger than {}".format(
         np.max([np.percentile(fg_ell, 10), max_source_ell])))
@@ -829,6 +847,8 @@ def clean_fg(datacontainer,
              rad_norm=1.,
              edges=60,
              output='Object',
+             to_flux=True,
+             flux_val=1.25,
              debug=False,
              show_debug=False,
              deep_debug=False):
@@ -842,7 +862,7 @@ def clean_fg(datacontainer,
     Parameters
     ----------
     datacontainer : IFUcube object
-        data intialized in cubeClass.py
+        data initialized in cubeClass.py
     min_lambda : int
         min channel to create the image where to detect sources
     max_lambda : int
@@ -855,33 +875,37 @@ def clean_fg(datacontainer,
         not be considered in the creation of the model.
     sig_source_detect : float
         detection sigma threshold for sources in the
-        collapsed cube. Defaults is 5.0
+        collapsed cube. (Default is 5.0)
     min_source_area : float
         min area for source detection in the collapsed
-        cube. Default is 16.
+        cube. (Default is 16)
     mask_size : float
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
-        axis of the detection. Default is 6.
+        axis of the detection. (Default is 6)
     max_source_size : float
         sources with semi-major or semi-minor axes larger than this
         value will not be considered in the foreground source model.
-        Default is 50.
+        (Default is 50)
     max_source_ell : float
         sources with ellipticity larger than this value will not be
-        considered in the foreground source model. Default is 0.9.
+        considered in the foreground source model. (Default is 0.9)
     bg_source : bool
         if True, an additional local background subtraction will be
-        performed around each detected sources. Default is True
+        performed around each detected sources. (Default is True)
     rad_norm : float
-        radius where to normalize the sources model. Default is 1.
+        radius where to normalize the sources model. (Default is 1)
     edges : int
         frame size removed to avoid problems related to the edge
         of the image
     output : string
         root file name for outputs
+    to_flux : boolean, optional
+        converts collapsed data to flux values - erg/s/cm**2 (default is False)
+    flux_val : float, optional
+        value for flux conversion (default is 1.25 Angs.)
     debug, show_debug, deep_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (default is False)
 
     Returns
     -------
@@ -892,16 +916,19 @@ def clean_fg(datacontainer,
         sources including data, masks, flux, etc.
     """
 
+
     print("clean_fg: Starting the cleaning of the cube")
     datacopy, statcopy = datacontainer.get_data_stat()
     z_max, y_max, x_max = np.shape(datacopy)
 
+
     print("clean_fg: Collapsing cube")
     fg_data, fg_stat = manip.collapse_container(datacontainer, mask_z=mask_z,
-                                                min_lambda=min_lambda, max_lambda=max_lambda)
+                                                min_lambda=min_lambda, max_lambda=max_lambda,
+                                                to_flux=to_flux, flux_val=flux_val)
 
     print("clean_fg: Searching for sources in the collapsed cube")
-    fg_sources, fg_all_sources, fg_bg_flux, fg_bg_sigma = sources_fg(fg_data, statcube=fg_stat,
+    fg_sources, fg_all_sources, fg_bg_flux, fg_bg_sigma = sources_fg(datacontainer,
                                                                      sig_source_detect=sig_source_detect,
                                                                      min_source_area=min_source_area,
                                                                      source_mask_size=mask_size,
@@ -948,7 +975,7 @@ def clean_fg(datacontainer,
                                                 np.array(fg_sources[sourceIdx]["x"]))
             if dist_from_masked < mask_xy_rad:
                 keep_source = False
-                print("cleanFg: Source not removed")
+                print("clean_fg: Source not removed")
                 print("         it is located {}<{} pixel away from the XYmask".format(dist_from_masked, mask_xy_rad))
 
         if keep_source:
@@ -1170,7 +1197,6 @@ def create_psf(datacontainer,
     if debug:
         print("create_psf: Creating debug images")
 
-        manip.nice_plot()
 
         plt.figure(1, figsize=(12, 6))
 
@@ -1319,8 +1345,6 @@ def clean_psf(datacontainer,
 
     if debug:
         print("clean_psf: Spectrum of the source")
-
-        manip.nice_plot()
 
         plt.figure(1, figsize=(18, 6))
 
