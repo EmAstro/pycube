@@ -11,7 +11,7 @@ from scipy import ndimage
 import warnings
 import pyregion
 
-def detect(zap,cat,dir):
+def detect(zap,cat,expected_wave,dir):
     np.seterr(divide='ignore',invalid='ignore') #ignores true divide error
     warnings.filterwarnings('ignore')           #ignore warnings
     f = fits.open(zap)
@@ -383,7 +383,7 @@ def detect(zap,cat,dir):
     #cube.data = cube.data * wave_step
 
 
-    wave_search = 9001.
+    wave_search = expected_wave
     delta_lbda_100 = int((1e2 / 3e5) * wave_search)
     delta_lbda_200 = int((2e2 / 3e5) * wave_search)
     delta_lbda_500 = int((5e2 / 3e5) * wave_search)
@@ -696,6 +696,42 @@ def detect(zap,cat,dir):
             spec_var.plot(ax=ax19, lmin=lbda_range_500[0], lmax=lbda_range_500[1])
             spec.plot(ax=ax20, lmin=lbda_range_1000[0], lmax=lbda_range_1000[1])
             spec_var.plot(ax=ax20, lmin=lbda_range_1000[0], lmax=lbda_range_1000[1])
+
+            circle1 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle2 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle3 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle4 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle5 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle6 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle7 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle8 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle9 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle10 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle11 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle12 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle13 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle14 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            circle15 = plt.Circle((65 / 2, 65 / 2), 7, color='r', fill=False, linestyle='--')
+            ax1.add_patch(circle1)
+            ax2.add_patch(circle2)
+            ax3.add_patch(circle3)
+            ax4.add_patch(circle4)
+            ax5.add_patch(circle5)
+            ax6.add_patch(circle6)
+            ax7.add_patch(circle7)
+            ax8.add_patch(circle8)
+            ax9.add_patch(circle9)
+            ax10.add_patch(circle10)
+            ax11.add_patch(circle11)
+            ax12.add_patch(circle12)
+            ax13.add_patch(circle13)
+            ax14.add_patch(circle14)
+            ax15.add_patch(circle15)
+
+
+
+
+
             plt.savefig(f"{lsdcat_images_directory_path}/{c}.png")
             plt.close('all')
             # plt.show()
