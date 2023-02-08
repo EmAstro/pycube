@@ -10,7 +10,23 @@ import matplotlib.pyplot as plt
 from lmfit import Model
 import shutil
 from scipy.stats import norm
+from astropy.cosmology import Planck18 as cosmos
+import astropy.units as u
 from scipy.optimize import curve_fit
+from uncertainties import ufloat
+
+log_L_star = ufloat(43.16,0.12)
+L_star = 10**log_L_star
+print(L_star)
+lum_dist = cosmos.luminosity_distance(np.mean([5.9670,6.0015,6.0031,6.1871,6.404]))
+flux_limit = L_star / (4 * np.pi * ((lum_dist.to(u.cm))**2))
+print(flux_limit * (u.cm**2))
+
+print(3500 * 0.25)
+
+
+#exit()
+
 
 print("Creating Main Directory in Desktop")
 directory = "apertures"
@@ -44,6 +60,7 @@ print("LSDcat DIRECTORY CREATED\n")
 
 
 zap ="/home/sai/Desktop/P183p05_DATACUBE_ZAP.fits"
+
 cube = Cube(zap)
 f = fits.open(zap)
 #hdul = fits.open(cat)  # LSDcat CATALOGUE
@@ -64,6 +81,21 @@ mu_total_1000=[]
 std_total_1000=[]
 
 
+def limit(x,sigma):
+    median_x = np.median(np.asarray(x)) #x is variance
+    median_x = median_x * 1e-20
+    print(f"median_average = {median_x}")
+    product = median_x * sigma
+    area = np.pi * 1.55 * 1.55
+
+    flux_limit = (product * 1 * np.sqrt(area))  #flux_limit at S/N = 11
+    lum_dist = cosmos.luminosity_distance(6.404)
+    luminosity_limit = flux_limit * 4 * np.pi * ((lum_dist.to(u.cm))**2)
+    luminosity_limit = luminosity_limit/(u.cm**2)
+    sfr_limit = luminosity_limit/(1.62e42)
+
+    return flux_limit,luminosity_limit,sfr_limit
+
 def quickApPhotmetryNoBg(imgData,imgStat,xObj,yObj,rObj):
     if np.size(xObj) == 1:
         xObject = np.array([xObj])
@@ -79,14 +111,24 @@ def quickApPhotmetryNoBg(imgData,imgStat,xObj,yObj,rObj):
 
     fluxObj = np.zeros_like(xObject, dtype=np.float_)
     errFluxObj = np.zeros_like(xObject, dtype=np.float_)
+    varFluxObj = np.zeros_like(xObject, dtype=np.float_)
 
     for idxObj in range(0, np.size(xObject)):
         posObj = [xObject[idxObj], yObject[idxObj]]
         circObj = CircularAperture(posObj, r=rAperture[idxObj])
         apPhot = aperture_photometry(imgData, circObj)
         varApPhot = aperture_photometry(imgStat, circObj)
+
+
+
+
         fluxObj[idxObj] = apPhot['aperture_sum'][0]
+        varFluxObj[idxObj]=varApPhot['aperture_sum'][0]
         errFluxObj[idxObj] = np.power(np.array(varApPhot['aperture_sum'][0]), 0.5)
+
+
+
+
 
     del rAperture
     del posObj
@@ -94,7 +136,7 @@ def quickApPhotmetryNoBg(imgData,imgStat,xObj,yObj,rObj):
     del apPhot
     del varApPhot
 
-    return fluxObj, errFluxObj
+    return fluxObj, errFluxObj, varFluxObj
 
 
 
@@ -157,13 +199,22 @@ def collapseCube(dataCube,statCube=None,minChannel=None,maxChannel=None,maskZ=No
         del tempStatCube
     del scaleFactor
 
+    print(f"OLA : {np.median(collapsedStatImage) * 1e-20}")
+
     return collapsedDataImage, collapsedStatImage
 
+n = 1
 
+f_limits_var = np.zeros((4,n))
+l_limits_var = np.zeros((4,n))
+s_limits_var = np.zeros((4,n))
 
+f_limits_err = np.zeros((4,n))
+l_limits_err = np.zeros((4,n))
+s_limits_err = np.zeros((4,n))
 
-for z in range(1):
-    print(f"run {z+1}/100")
+for z in range(n):
+    print(f"run {z+1}/{n}")
     ra_random_pix = np.random.randint(20, hdr['NAXIS1'] - 20, 600)
     dec_random_pix = np.random.randint(20, hdr['NAXIS1'] - 20, 600)
 
@@ -273,7 +324,7 @@ for z in range(1):
                  "\nglobal color=green dashlist=8 3 width=1 font='helvetica 10 normal roman' select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1 "
                  "\nfk5\n")
     for i in range(len(ra_three_accept)):
-        file_3.write(f"circle({ra_three_accept[i]},{dec_three_accept[i]},{0.0001722})\n")
+        file_3.write(f"circle({ra_three_accept[i]},{dec_three_accept[i]},{0.0000861})\n")
     file_3.close()
     print("FILE CREATED\n")
 
@@ -304,32 +355,37 @@ for z in range(1):
     channel_range_500=np.asarray([np.int64((lbda_range_500[0] - 7500) / 1.25)+1, np.int64((lbda_range_500[1] - 7500) / 1.25) + 1])
     channel_range_1000=np.asarray([np.int64((lbda_range_1000[0] - 7500) / 1.25)+1, np.int64((lbda_range_1000[1] - 7500) / 1.25) + 1])
 
-    #img_narrow_band_100.data, img_narrow_band_100.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_100[0],maxChannel=channel_range_100[1])
-    #img_narrow_band_200.data, img_narrow_band_200.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_200[0],maxChannel=channel_range_200[1])
-    #img_narrow_band_500.data, img_narrow_band_500.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_500[0],maxChannel=channel_range_500[1])
-    #img_narrow_band_1000.data, img_narrow_band_1000.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_1000[0],maxChannel=channel_range_1000[1])
+    img_narrow_band_100.data, img_narrow_band_100.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_100[0],maxChannel=channel_range_100[1])
+    img_narrow_band_200.data, img_narrow_band_200.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_200[0],maxChannel=channel_range_200[1])
+    img_narrow_band_500.data, img_narrow_band_500.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_500[0],maxChannel=channel_range_500[1])
+    img_narrow_band_1000.data, img_narrow_band_1000.var = collapseCube(dataCube=cube.data, statCube=cube.var,minChannel=channel_range_1000[0],maxChannel=channel_range_1000[1])
 
     print(channel_range_100)
     print(channel_range_200)
     print(channel_range_500)
     print(channel_range_1000)
 
-    flux_100, err_100 = quickApPhotmetryNoBg(imgData=img_narrow_band_100.data * 1.25, imgStat=img_narrow_band_100.var * 1.25 * 1.25, xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
-    flux_200, err_200 = quickApPhotmetryNoBg(imgData=img_narrow_band_200.data * 1.25, imgStat=img_narrow_band_200.var * 1.25 * 1.25,xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
-    flux_500, err_500 = quickApPhotmetryNoBg(imgData=img_narrow_band_500.data * 1.25, imgStat=img_narrow_band_500.var * 1.25 * 1.25,xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
-    flux_1000, err_1000 = quickApPhotmetryNoBg(imgData=img_narrow_band_1000.data * 1.25, imgStat=img_narrow_band_1000.var * 1.25 * 1.25,xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
+    flux_100, err_100, var_100 = quickApPhotmetryNoBg(imgData=img_narrow_band_100.data , imgStat=img_narrow_band_100.var , xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1/2)
+    flux_200, err_200, var_200 = quickApPhotmetryNoBg(imgData=img_narrow_band_200.data , imgStat=img_narrow_band_200.var ,xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1/2)
+    flux_500, err_500, var_500 = quickApPhotmetryNoBg(imgData=img_narrow_band_500.data , imgStat=img_narrow_band_500.var ,xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1/2)
+    flux_1000, err_1000, var_1000 = quickApPhotmetryNoBg(imgData=img_narrow_band_1000.data , imgStat=img_narrow_band_1000.var ,xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1/2)
 
     flux_100=np.asarray(flux_100)
     err_100 = np.asarray(err_100)
+    var_100 = np.asarray(var_100)
 
     flux_200=np.asarray(flux_200)
     err_200 = np.asarray(err_200)
+    var_200 = np.asarray(var_200)
 
     flux_500=np.asarray(flux_500)
     err_500 = np.asarray(err_500)
+    var_500 = np.asarray(var_500)
 
     flux_1000=np.asarray(flux_1000)
     err_1000 = np.asarray(err_1000)
+    var_1000 = np.asarray(var_1000)
+
 
     ratio_100 = flux_100 / err_100
     ratio_200 = flux_200 / err_200
@@ -373,7 +429,7 @@ for z in range(1):
         f"1000kms-1 \n $\mu$ = {np.round(mu_1000, decimals=2)} $\sigma$ = {np.round(sigma_1000, decimals=2)}")
 
     #plt.show()
-    plt.savefig(f"{histogram_and_fit_directory_path}/mpdaf.png")
+    plt.savefig(f"{histogram_and_fit_directory_path}/sir_code")
     plt.close('all')
 
 
@@ -382,87 +438,90 @@ for z in range(1):
 
 
 
+    print("***********************************************************")
+
+    #f_100, l_100, s_100 = limit(img_narrow_band_100.var,sigma_100)
+    #f_200, l_200, s_200 = limit(img_narrow_band_200.var, sigma_200)
+    #f_500, l_500, s_500 = limit(img_narrow_band_500.var, sigma_500)
+    #f_1000, l_1000, s_1000 = limit(img_narrow_band_1000.var, sigma_1000)
+
+
+    print(np.median(img_narrow_band_100.var))
+    print(np.median(var_100))
+
+    print(np.median(img_narrow_band_200.var))
+    print(np.median(var_200))
+
+    print(np.median(img_narrow_band_500.var))
+    print(np.median(var_500))
+
+    print(np.median(img_narrow_band_1000.var))
+    print(np.median(var_100))
+
+
+    f_100, l_100, s_100 = limit(img_narrow_band_100.var,sigma_100)
+    f_200, l_200, s_200 = limit(img_narrow_band_200.var, sigma_200)
+    f_500, l_500, s_500 = limit(img_narrow_band_500.var, sigma_500)
+    f_1000, l_1000, s_1000 = limit(img_narrow_band_1000.var, sigma_1000)
+
+    print(f"hi: {z}")
+
+    f_limits_var[0][z] = f_100
+    f_limits_var[1][z] = f_200
+    f_limits_var[2][z] = f_500
+    f_limits_var[3][z] = f_1000
+
+    l_limits_var[0][z] = l_100
+    l_limits_var[1][z] = l_200
+    l_limits_var[2][z] = l_500
+    l_limits_var[3][z] = l_1000
+
+    s_limits_var[0][z] = s_100
+    s_limits_var[1][z] = s_200
+    s_limits_var[2][z] = s_500
+    s_limits_var[3][z] = s_1000
+
+    del f_100, l_100, s_100, f_200, l_200, s_200, f_500, l_500, s_500, f_1000, l_1000, s_1000
+
+    f_100, l_100, s_100 = limit(err_100, sigma_100)
+    f_200, l_200, s_200 = limit(err_200, sigma_200)
+    f_500, l_500, s_500 = limit(err_500, sigma_500)
+    f_1000, l_1000, s_1000 = limit(err_1000, sigma_1000)
+
+    f_limits_err[0][z] = f_100
+    f_limits_err[1][z] = f_200
+    f_limits_err[2][z] = f_500
+    f_limits_err[3][z] = f_1000
+
+    l_limits_err[0][z] = l_100
+    l_limits_err[1][z] = l_200
+    l_limits_err[2][z] = l_500
+    l_limits_err[3][z] = l_1000
+
+    s_limits_err[0][z] = s_100
+    s_limits_err[1][z] = s_200
+    s_limits_err[2][z] = s_500
+    s_limits_err[3][z] = s_1000
+
+    del f_100, l_100, s_100, f_200, l_200, s_200, f_500, l_500, s_500, f_1000, l_1000, s_1000
 
 
 
+print(l_limits_var[0])
+name_of_region_file = os.path.join(dir_path, f"var_limit")
+file_5 = open(name_of_region_file, "w+")
+file_5.write(f"100kms-1 \n Flux limit = {np.mean(f_limits_var[0])} +/- {np.std(f_limits_var[0])}; Luminosity limit = {np.mean(l_limits_var[0])} +/- {np.std(l_limits_var[0])}; SFR limit = {np.mean(s_limits_var[0])} +/- {np.std(s_limits_var[0])}"
+             f"\n \n"
+             f"200kms-1 \n Flux limit = {np.mean(f_limits_var[1])} +/- {np.std(f_limits_var[1])}; Luminosity limit = {np.mean(l_limits_var[1])} +/- {np.std(l_limits_var[1])}; SFR limit = {np.mean(s_limits_var[1])} +/- {np.std(s_limits_var[1])}"
+             f"\n \n"
+             f"500kms-1 \n Flux limit = {np.mean(f_limits_var[2])} +/- {np.std(f_limits_var[2])}; Luminosity limit = {np.mean(l_limits_var[2])} +/- {np.std(l_limits_var[2])}; SFR limit = {np.mean(s_limits_var[2])} +/- {np.std(s_limits_var[2])}"
+             f"\n \n"
+             f"1000kms-1 \n Flux limit = {np.mean(f_limits_var[3])} +/- {np.std(f_limits_var[3])}; Luminosity limit = {np.mean(l_limits_var[3])} +/- {np.std(l_limits_var[3])}; SFR limit = {np.mean(s_limits_var[3])} +/- {np.std(s_limits_var[3])}")
+file_5.close()
+print("FILE CREATED\n")
 
-    img_narrow_band_100.data, img_narrow_band_100.var = collapseCube(dataCube=cube.data, statCube=cube.var,
-                                                                     minChannel=channel_range_100[0],
-                                                                     maxChannel=channel_range_100[1])
-    img_narrow_band_200.data, img_narrow_band_200.var = collapseCube(dataCube=cube.data, statCube=cube.var,
-                                                                     minChannel=channel_range_200[0],
-                                                                     maxChannel=channel_range_200[1])
-    img_narrow_band_500.data, img_narrow_band_500.var = collapseCube(dataCube=cube.data, statCube=cube.var,
-                                                                     minChannel=channel_range_500[0],
-                                                                     maxChannel=channel_range_500[1])
-    img_narrow_band_1000.data, img_narrow_band_1000.var = collapseCube(dataCube=cube.data, statCube=cube.var,
-                                                                       minChannel=channel_range_1000[0],
-                                                                       maxChannel=channel_range_1000[1])
 
-    flux_100, err_100 = quickApPhotmetryNoBg(imgData=img_narrow_band_100.data, imgStat=img_narrow_band_100.var,
-                                             xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
-    flux_200, err_200 = quickApPhotmetryNoBg(imgData=img_narrow_band_200.data, imgStat=img_narrow_band_200.var,
-                                             xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
-    flux_500, err_500 = quickApPhotmetryNoBg(imgData=img_narrow_band_500.data, imgStat=img_narrow_band_500.var,
-                                             xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
-    flux_1000, err_1000 = quickApPhotmetryNoBg(imgData=img_narrow_band_1000.data, imgStat=img_narrow_band_1000.var,
-                                               xObj=ra_three_accept_pix, yObj=dec_three_accept_pix, rObj=3.1)
 
-    flux_100 = np.asarray(flux_100)
-    err_100 = np.asarray(err_100)
-
-    flux_200 = np.asarray(flux_200)
-    err_200 = np.asarray(err_200)
-
-    flux_500 = np.asarray(flux_500)
-    err_500 = np.asarray(err_500)
-
-    flux_1000 = np.asarray(flux_1000)
-    err_1000 = np.asarray(err_1000)
-
-    ratio_100 = flux_100 / err_100
-    ratio_200 = flux_200 / err_200
-    ratio_500 = flux_500 / err_500
-    ratio_1000 = flux_1000 / err_1000
-
-    print(ratio_100.shape)
-    print(ratio_200.shape)
-    print(ratio_500.shape)
-    print(ratio_1000.shape)
-
-    mu_100, sigma_100 = norm.fit(ratio_100)
-    mu_200, sigma_200 = norm.fit(ratio_200)
-    mu_500, sigma_500 = norm.fit(ratio_500)
-    mu_1000, sigma_1000 = norm.fit(ratio_1000)
-
-    bin = np.linspace(-10, 10, 15)
-    x = np.linspace(-10, 10, 500)
-    fig, ax = plt.subplots(1, 4, figsize=(15, 15), tight_layout=True)
-
-    ax[0].hist(ratio_100, bins=bin, density=True, alpha=0.6)
-    p_1 = norm.pdf(x, mu_100, sigma_100)
-    ax[0].plot(x, p_1, 'k')
-    ax[0].set_title(f"100kms-1 \n $\mu$ = {np.round(mu_100, decimals=2)} $\sigma$ = {np.round(sigma_100, decimals=2)}")
-
-    ax[1].hist(ratio_200, bins=bin, density=True, alpha=0.6)
-    p_2 = norm.pdf(x, mu_200, sigma_200)
-    ax[1].plot(x, p_2, 'k')
-    ax[1].set_title(f"200kms-1 \n $\mu$ = {np.round(mu_200, decimals=2)} $\sigma$ = {np.round(sigma_200, decimals=2)}")
-
-    ax[2].hist(ratio_500, bins=bin, density=True, alpha=0.6)
-    p_3 = norm.pdf(x, mu_500, sigma_500)
-    ax[2].plot(x, p_3, 'k')
-    ax[2].set_title(f"500kms-1 \n $\mu$ = {np.round(mu_500, decimals=2)} $\sigma$ = {np.round(sigma_500, decimals=2)}")
-
-    ax[3].hist(ratio_1000, bins=bin, density=True, alpha=0.6)
-    p_4 = norm.pdf(x, mu_1000, sigma_1000)
-    ax[3].plot(x, p_4, 'k')
-    ax[3].set_title(
-        f"1000kms-1 \n $\mu$ = {np.round(mu_1000, decimals=2)} $\sigma$ = {np.round(sigma_1000, decimals=2)}")
-
-    #plt.show()
-    plt.savefig(f"{histogram_and_fit_directory_path}/sir_code.png")
-    plt.close('all')
 
 
 

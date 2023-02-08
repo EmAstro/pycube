@@ -296,7 +296,7 @@ def detect(zap,cat,expected_wave,dir):
         t = np.trim_zeros(wave_edges_removed[i])
         t = np.asarray(t)
         for j in range(len(t)):
-            if 7.75125e-7 < t[j] < 9.300e-7:
+            if 7.75125e-7 < t[j] < 9.200e-7:
                 m = m + 1
             else:
                 continue
