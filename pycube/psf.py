@@ -34,27 +34,27 @@ def find_sources(datacontainer, statcube=None,
     datacontainer : np.array, IFUcube object
         3D data cube of or data file initialized in cubeClass.py
     statcube : np.array, optional
-        3D variance of data, assumes IFUcube for datacube (default is None)
+        3D variance of data, assumes IFUcube for datacube (Default is None)
     min_lambda : float
-        minimum wavelength value to collapse 3D image (default is None)
+        minimum wavelength value to collapse 3D image (Default is None)
     max_lambda : float
-        maximum wavelength value to collapse 3D image (default is None)
+        maximum wavelength value to collapse 3D image (Default is None)
     mask_z : np.array
-        range of z-axis values that the user can mask in the datacube during collapsing (default is None)
+        range of z-axis values that the user can mask in the datacube during collapsing (Default is None)
     to_flux : boolean, optional
-        converts collapsed data to flux values - erg/s/cm**2 (default is False)
+        converts collapsed data to flux values - erg/s/cm**2 (Default is False)
     flux_val : float, optional
-        value for flux conversion (default is 1.25 Angs.)
+        value for flux conversion (Default is 1.25 Angs.)
     var_factor : int, float, optional
-        affects generated variance, if variance is auto-generated from image data (default is 5.)
+        affects generated variance, if variance is auto-generated from image data (Default is 5.)
     threshold : int, float, optional
-        threshold value for sigma detection with seXtractor background subtraction (default is 4.)
+        threshold value for sigma detection with seXtractor background subtraction (Default is 4.)
     sig_detect : int, float, optional
-        minimum signal detected by function (default is 2.)
+        minimum signal detected by function (Default is 2.)
     min_area : int, float, optional
-        minimum area determined to be a source (default is 3.)
+        minimum area determined to be a source (Default is 3.)
     deblend_val : float, optional
-            value for sep extractor, minimum contrast ratio for object blending (default is 0.005)
+            value for sep extractor, minimum contrast ratio for object blending (Default is 0.005)
 
     Returns
     -------
@@ -130,13 +130,13 @@ def background_cube(datacontainer,
     datacontainer : IFUcube object
         data initialized in cubeClass
     sig_source_detect : float, int, optional
-        value of source significance to be detected (default is 3.)
+        value of source significance to be detected (Default is 3.)
     min_source_area : float, int, optional
-        minimum area of sources to be considered for masking (default is 12.)
+        minimum area of sources to be considered for masking (Default is 12.)
     source_mask_size : float, int, optional
-        mask size (default is 6.)
+        mask size (Default is 6.)
     edges : int, float
-        pixel count to be removed from the edges of the image (default is 50)
+        pixel count to be removed from the edges of the image (Default is 50)
 
     Returns
     -------
@@ -215,38 +215,38 @@ def stat_bg(datacontainer,
     datacontainer : IFUcube object, np.array
         data initialized in cubeClass.py or 3D data array
     statcube : np.array, optional
-        3D variance array (default is None)
+        3D variance array (Default is None)
     min_lambda : int, optional
         min channel to create the image where to detect sources
     max_lambda : int, optional
         max channel to create the image where to detect sources
     mask_z : np.array, optional
         array of channels, for collapse function to remove
-        channels masked as 1 or True (default is None)
+        channels masked as 1 or True (Default is None)
     mask_xy : int, bool, optional
         when 1 (or True), this spatial pixel will remove from
-        the estimate of the b/g values (default is None)
+        the estimate of the b/g values (Default is None)
     sig_source_detect : float, optional
         detection sigma threshold for sources in the
-        collapsed cube (default is 5.0)
+        collapsed cube (Default is 5.0)
     min_source_area : float, optional
         min area for source detection in the collapsed
-        cube (default is 16)
+        cube (Default is 16)
     source_mask_size : float, optional
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
-        axis of the detection (default is 6.)
+        axis of the detection (Default is 6.)
     edges : int, optional
         frame size removed to avoid problems related to the edge
-        of the image (default is 60)
+        of the image (Default is 60)
     output : string
-        root file name for output (default is 'Object')
+        root file name for output (Default is 'Object')
     sigma_clipping : boolean, optional
         Specifies whether sigma clipping of the data is necessary.
         Iterates through data and removes values significantly distant from the standard deviation
-        High variance in correction value output may be corrected using this (default is False)
+        High variance in correction value output may be corrected using this (Default is False)
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (Default False)
 
     Returns
     -------
@@ -399,30 +399,30 @@ def subtract_bg(datacontainer,
         max channel to create the image to detected sources
     mask_z : np.array
         array of channels, when 1 (or True), the channel is removed when
-        collapsing the cube to detect sources (default is None)
+        collapsing the cube to detect sources (Default is None)
     mask_xy : int, bool, optional
         when 1 (or True), this spatial pixel will be removed from
-        the estimate of the b/g values (default is None)
+        the estimate of the b/g values (Default is None)
     sig_source_detect : float
         detection sigma threshold for sources in the
-        collapsed cube (default is 5.0)
+        collapsed cube (Default is 5.0)
     min_source_area : float
-        min area for source detection in the collapsed cube (default is 16.)
+        min area for source detection in the collapsed cube (Default is 16.)
     source_mask_size : float
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
-        axis of the detection (default is 6.)
+        axis of the detection (Default is 6.)
     edges : int
         frame size removed to avoid problems related to the edge
-        of the image (default is 60)
+        of the image (Default is 60)
     output : string
         root file name for outputs
     sigma_clipping : boolean, optional
         Specifies whether sigma clipping of the data is necessary.
         Iterates through data and removes values significantly distant from the standard deviation
-        High variance in correction value output may be corrected using this (default is False)
+        High variance in correction value output may be corrected using this (Default is False)
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (Default False)
 
     Returns
     -------
@@ -535,41 +535,41 @@ def sources_fg(datacontainer,
         IFU cube object initialized in Pycube
     sig_source_detect : float
         detection sigma threshold for sources in the
-        collapsed cube. Defaults is 5.0
+        collapsed cube. Default is 5.0
     min_source_area : float
         min area for source detection in the collapsed
-        cube. Default is 16.
+        cube. (Default is 16.)
     source_mask_size : float
         for each source, the model will be created in an elliptical
         aperture with size source_mask_size time the semi-minor and semi-major
-        axis of the detection. Default is 6.
+        axis of the detection. (Default is 6.)
     max_source_size : float
         sources with semi-major or semi-minor axes larger than this
         value will not be considered in the foreground source model.
-        Default is 50.
+        (Default is 50.)
     max_source_ell : float
         sources with ellipticity larger than this value will not be
-        considered in the foreground source model. Default is 0.9.
+        considered in the foreground source model. (Default is 0.9.)
     rad_norm : float
-        radius where to normalize the sources model. Default is 1.
+        radius where to normalize the sources model. (Default is 1.)
     edges : int
         frame size removed to avoid problems related to the edge
         of the image
     output : string
         root file name for outputs
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (Default is False)
 
     Returns
     -------
-    fgSources : dict
+    fg_sources : dict
         Dictionary containing relevant information on the detected
         sources including data, masks, flux, etc.
-    fgAllSources : astropy table
+    fg_all_sources : astropy table
         Astropy table containing the information of all sources detected
         (i.e. without any cleaning). This is the direct output of the
         source finding algorithm.
-    fgBackgroundFlux, fgBackgroundSigma : float
+    fg_flux, fg_sigma : float
         Average background flux and sigma after source extractions
     """
     print('sources_fg: Extrapolating data and error from datacontainer')
@@ -583,16 +583,16 @@ def sources_fg(datacontainer,
                                                                               max_lambda=max_lambda,
                                                                               mask_z=None,
                                                                               var_factor=5.,
-                                                                              threshold=4.,
+                                                                              threshold=sig_source_detect,
                                                                               sig_detect=sig_source_detect,
                                                                               min_area=min_source_area,
                                                                               deblend_val=0.005)
     print("sources_fg: Detected {} sources".format(len(fg_xpos)))
 
     print("sources_fg: Perform some cleaning on the detected sources")
-    # Checking that, within RadiusNorm, each source is at least
+    # Checking that, within rad_norm, each source is at least
     # sig_source_detection/2. sigma above the background
-    # skyMask is a mask where all sources are masked as 1,
+    # sky_mask is a mask where all sources are masked as 1,
     # while the background is set to 0
     fg_datacopy = np.copy(datacube)  # Collapsed copy
     sky_mask = manip.location(datacube, fg_xpos, fg_ypos,
@@ -614,7 +614,7 @@ def sources_fg(datacontainer,
     fg_flux = np.nanmedian(fg_datacopy)
     fg_sigma = np.nanstd(fg_datacopy)
     extreme_mask[np.abs((datacube - fg_flux) / fg_sigma) < 2.99] = 0  # (collapsed data - median value) / standard dev
-    fg_datacopy[(extreme_mask == 1)] = np.nan                         # if > 2.99 -> masked as nan
+    fg_datacopy[(extreme_mask == 1)] = np.nan  # if > 2.99 -> masked as nan
 
     # Checking values of the background
     # Reassigning variable due to possible masking of extreme values
@@ -666,8 +666,16 @@ def sources_fg(datacontainer,
     fg_angle = fg_angle[fg_location]
 
     print("sources_fg: Detected {} sources after edges removal".format(len(fg_xpos)))
+    if len(fg_xpos) == 0:
+        print('sources_fg: No sources detected in foreground use alternative data cube')
+        fg_sources = None
+        fg_flux = None
+        fg_err_flux = None
+        fg_flux_bg = None
 
+        return fg_sources, fg_flux, fg_err_flux, fg_flux_bg
     # Removes crazy values axis of elliptical sources
+
     fg_maj_size = fg_maj < max_source_size
     fg_min_size = fg_min < max_source_size
     fg_maj_big = np.max((fg_maj, fg_min), axis=0)
@@ -687,7 +695,6 @@ def sources_fg(datacontainer,
     print("sources_fg: Removing sources with ellipticity larger than {}".format(
         np.max([np.percentile(fg_ell, 10), max_source_ell])))
     print("sources_fg: Detected {} sources after removing unusual shapes".format(len(fg_xpos)))
-
     del fg_datacopy
     del fg_bright
     del fg_location
@@ -758,64 +765,64 @@ def sources_fg(datacontainer,
     # create dictionary with relevant information on the fg sources
     fg_sources = {}
     fg_flux = np.zeros_like(fg_xpos)
-    fg_err_flux = np.zeros_like(fg_xpos)
-    fg_flux_bg = np.zeros_like(fg_xpos)
 
     # create elliptical mask with all sources masked
     # fgMask is a mask where all sources are masked as 1,
     # while the background is set to 0
-    fg_mask = manip.location(fg_data_no_bg, fg_xpos, fg_ypos,
-                             semi_maj=source_mask_size * fg_maj,
-                             semi_min=source_mask_size * fg_min,
-                             theta=fg_angle)
+    for source in range(len(fg_xpos)):
+        fg_mask = manip.location(fg_data_no_bg, fg_xpos[source], fg_ypos[source],
+                                 semi_maj=source_mask_size * fg_maj[source],
+                                 semi_min=source_mask_size * fg_min[source],
+                                 theta=fg_angle[source])
 
-    index_mask = manip.location(fg_data_no_bg, fg_xpos, fg_ypos,
-                                semi_maj=source_mask_size * fg_maj,
-                                semi_min=source_mask_size * fg_min,
-                                theta=fg_angle)
-    fg_this_mask, fg_this_data_no_bg = np.copy(fg_mask), np.copy(fg_data_no_bg)
-    # fgThisMask is a mask where all sources are masked as 1 BUT the source considered
-    fg_this_mask[(fg_mask == 1)] = int(0)
+        index_mask = manip.location(fg_data_no_bg, fg_xpos[source], fg_ypos[source],
+                                    semi_maj=source_mask_size * fg_maj[source],
+                                    semi_min=source_mask_size * fg_min[source],
+                                    theta=fg_angle[source])
 
-    # if there is another source in the area of fgThisSourceMask
+        fg_this_mask, fg_this_data_no_bg = np.copy(fg_mask), np.copy(fg_data_no_bg)
+    # fg_this_mask is a mask where all sources are masked as 1 BUT the source considered
+
+        fg_this_mask[(fg_mask == 1)] = int(0)
+
     # it will be masked within rad_norm
-    fg_contaminant_small_mask = manip.location(fg_data_no_bg, fg_xpos, fg_ypos,
-                                            semi_maj=rad_norm,
-                                            semi_min=rad_norm,
-                                            theta=fg_angle)
+        fg_contaminant_small_mask = manip.location(fg_data_no_bg, fg_xpos, fg_ypos,
+                                                   semi_maj=rad_norm,
+                                                   semi_min=rad_norm,
+                                                   theta=fg_angle)
 
-    fg_this_mask[(fg_contaminant_small_mask == 1)] = 1
-    # Loading only data from the current source
-    fg_this_source_data = np.copy(datacube)
-    fg_this_source_data[(index_mask == 0)] = 0.
-    fg_this_source_data_no_bg = np.copy(fg_data_no_bg)
-    fg_this_source_data_no_bg[(index_mask == 0)] = 0.
-    fg_this_source_data_no_bg[(fg_this_mask == 1)] = 0.
+        fg_this_mask[(fg_contaminant_small_mask == 1)] = 1
+        # Loading only data from the current source
 
-    # Loading dictionary with relevant information
-    for sourceIdx in range(len(fg_xpos)):
-        fg_sources[sourceIdx] = {}
-        fg_sources[sourceIdx]["x"] = fg_xpos[sourceIdx]
-        fg_sources[sourceIdx]["y"] = fg_ypos[sourceIdx]
-        fg_sources[sourceIdx]["semi_maj"] = fg_maj[sourceIdx]
-        fg_sources[sourceIdx]["semi_min"] = fg_min[sourceIdx]
-        fg_sources[sourceIdx]["theta"] = fg_angle[sourceIdx]
-        fg_sources[sourceIdx]["flux"] = fg_flux_cent[sourceIdx]
-        fg_sources[sourceIdx]["err_flux"] = fg_err_flux_cent[sourceIdx]
-        fg_sources[sourceIdx]["radius_flux"] = rad_norm
-        fg_sources[sourceIdx]["bg_flux"] = fg_flux
-        fg_sources[sourceIdx]["err_bg_flux"] = fg_sigma
-        fg_sources[sourceIdx]["source_mask"] = index_mask
-        fg_sources[sourceIdx]["contaminant_mask"] = fg_this_mask
-        fg_sources[sourceIdx]["source_data"] = fg_this_source_data
-        fg_sources[sourceIdx]["source_data_no_bg"] = fg_this_source_data_no_bg
+        fg_this_source_data = np.copy(datacube)
+        fg_this_source_data[(index_mask == 0)] = 0.
+        fg_this_source_data_no_bg = np.copy(fg_data_no_bg)
+        fg_this_source_data_no_bg[(index_mask == 0)] = 0.
+        fg_this_source_data_no_bg[(fg_this_mask == 1)] = 0.
 
-    # Deleting temporary images to clear up memory
-    del fg_this_source_data_no_bg
-    del fg_this_source_data
-    del fg_this_mask
-    del index_mask
+        # Loading dictionary with relevant information
 
+        fg_sources[source] = {}
+        fg_sources[source]["x"] = fg_xpos[source]
+        fg_sources[source]["y"] = fg_ypos[source]
+        fg_sources[source]["semi_maj"] = fg_maj[source]
+        fg_sources[source]["semi_min"] = fg_min[source]
+        fg_sources[source]["theta"] = fg_angle[source]
+        fg_sources[source]["flux"] = fg_flux_cent[source]
+        fg_sources[source]["err_flux"] = fg_err_flux_cent[source]
+        fg_sources[source]["radius_flux"] = rad_norm
+        fg_sources[source]["bg_flux"] = fg_flux
+        fg_sources[source]["err_bg_flux"] = fg_sigma
+        fg_sources[source]["source_mask"] = index_mask
+        fg_sources[source]["contaminant_mask"] = fg_this_mask
+        fg_sources[source]["source_data"] = fg_this_source_data
+        fg_sources[source]["source_data_no_bg"] = fg_this_source_data_no_bg
+
+        # Deleting temporary images to clear up memory
+        del fg_this_source_data_no_bg
+        del fg_this_source_data
+        del fg_this_mask
+        del fg_mask
     return fg_sources, fg_all_sources, fg_flux, fg_sigma
 
 
@@ -889,11 +896,11 @@ def clean_fg(datacontainer,
     output : string
         root file name for outputs
     to_flux : boolean, optional
-        converts collapsed data to flux values - erg/s/cm**2 (default is False)
+        converts collapsed data to flux values - erg/s/cm**2 (Default is False)
     flux_val : float, optional
-        value for flux conversion (default is 1.25 Angs.)
+        value for flux conversion (Default is 1.25 Angs.)
     debug, show_debug, deep_debug : boolean, optional
-        runs debug sequence to display output of function (default is False)
+        runs debug sequence to display output of function (Default is False)
 
     Returns
     -------
@@ -904,11 +911,9 @@ def clean_fg(datacontainer,
         sources including data, masks, flux, etc.
     """
 
-
     print("clean_fg: Starting the cleaning of the cube")
     datacopy, statcopy = datacontainer.get_data_stat()
     z_max, y_max, x_max = np.shape(datacopy)
-
 
     print("clean_fg: Collapsing cube")
     fg_data, fg_stat = manip.collapse_container(datacontainer, mask_z=mask_z,
@@ -926,6 +931,9 @@ def clean_fg(datacontainer,
                                                                      edges=edges,
                                                                      output=output,
                                                                      debug=debug)
+    if fg_sources is None:
+        print('clean_fg: No FG sources detected. Returning input data and variance')
+        return datacopy, statcopy, fg_sources
 
     print("clean_fg: Subtracting contaminants")
     # Subtracting the f/g contamination
@@ -957,10 +965,10 @@ def clean_fg(datacontainer,
                                                                         x_pos=fg_sources[sourceIdx]["x"],
                                                                         y_pos=fg_sources[sourceIdx]["y"],
                                                                         radius_pos=fg_sources[sourceIdx]["radius_flux"])
-            fg_bg_flux_source = None
         keep_source = True
         if mask_xy_rad is not None:
-            dist_from_masked = manip.pixel_dist(0., mask_y, mask_x, 0., np.array(fg_sources[sourceIdx]["y"]),
+            dist_from_masked = manip.pixel_dist(0., mask_y, mask_x, 0.,
+                                                np.array(fg_sources[sourceIdx]["y"]),
                                                 np.array(fg_sources[sourceIdx]["x"]))
             if dist_from_masked < mask_xy_rad:
                 keep_source = False
@@ -968,6 +976,7 @@ def clean_fg(datacontainer,
                 print("         it is located {}<{} pixel away from the XY mask".format(dist_from_masked, mask_xy_rad))
 
         if keep_source:
+            print("clean_fg: Cleaning source")
             for channel in range(0, z_max):
                 # selecting only where the source is significantly detected
                 if fg_flux_source[channel] > 0.5 * fg_err_flux_source[channel]:
@@ -1014,8 +1023,6 @@ def clean_fg(datacontainer,
             plt.show()
             plt.close()
             del temp_fg_model
-
-    print("clean_fg: Source cleaning performed")
 
     if debug:
         print("clean_fg: Saving debug image on {}_fgSourcesCleaned.pdf".format(output))
@@ -1070,7 +1077,8 @@ def clean_fg(datacontainer,
     f = open(output + "_fgSources.txt", 'w')
     f.write("Id fg_x_pix fg_y_pix fg_semi_maj fg_semi_min fg_theta\n")
     for sourceIdx in range(0, len(fg_sources)):
-        f.write("{:.0f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(sourceIdx, fg_sources[sourceIdx]["x"],
+        f.write("{:.0f} {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}\n".format(sourceIdx,
+                                                                     fg_sources[sourceIdx]["x"],
                                                                      fg_sources[sourceIdx]["y"],
                                                                      fg_sources[sourceIdx]["semi_maj"],
                                                                      fg_sources[sourceIdx]["semi_min"],
@@ -1117,33 +1125,33 @@ def create_psf(datacontainer,
     statcube : np.array, optional
         variance data array, optional if headers is IFUcube
     min_lambda : int, optional
-        min channel to create collapsed image (default is None)
+        min channel to create collapsed image (Default is None)
     max_lambda : int, optional
-        max channel to create collapsed image (default is None)
+        max channel to create collapsed image (Default is None)
     mask_z : np.array
-        array of channels, when 1 (or True), the channel is removed (default is None)
+        array of channels, when 1 (or True), the channel is removed (Default is None)
     radius_pos : float
-        radius where to perform the aperture photometry (default is 2.)
+        radius where to perform the aperture photometry (Default is 2.)
     inner_rad : float
-        inner radius of the background region in pixels (default is 10.)
+        inner radius of the background region in pixels (Default is 10.)
     outer_rad : float
-        outer radius of the background region in pixels (default is 15.)
+        outer radius of the background region in pixels (Default is 15.)
     rad_psf : float
         radius of the PSF image to be created. Outside
-        these pixels values are set to zero (default is 50.)
+        these pixels values are set to zero (Default is 50.)
     c_type : str
         type of combination for PSF creation:
         'average' is weighted average
-        'sum' is direct sum of all pixels (default)
+        'sum' is direct sum of all pixels (Default)
     norm : bool
         if 'True' normalizes the central regions of the
-        PSF to 1 (default is True)
+        PSF to 1 (Default is True)
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (Default False)
     output : str, optional
-        name of output file if save_debug is set to True (default is 'object')
+        name of output file if save_debug is set to True (Default is 'object')
     save_debug : boolean, optional
-        saves debug output if set to True (default is False)
+        saves debug output if set to True (Default is False)
 
     Returns
     -------
@@ -1156,20 +1164,22 @@ def create_psf(datacontainer,
     if statcube is None:
         if c_type == 'sum':
             print("create_psf: Summing channels")
-            psf_data, psf_stat = manip.collapse_cube(datacontainer, min_lambda, max_lambda, mask_z=mask_z)
+            psf_data, psf_stat = manip.collapse_container(datacontainer, min_lambda, max_lambda, mask_z=mask_z)
         else:
             print("create_psf: Average combining channels")
             psf_data, psf_stat = manip.collapse_mean_container(datacontainer, min_lambda, max_lambda)
     else:
         datacopy = np.copy(datacontainer)
+        statcopy = np.copy(statcube)
         if c_type == 'sum':
             print("create_psf: Summing channels")
             psf_data = manip.collapse_cube(datacopy, min_lambda, max_lambda, mask_z=mask_z)
-            psf_stat = manip.collapse_cube(statcube, min_lambda, max_lambda, mask_z=mask_z)
+            psf_stat = manip.collapse_cube(statcopy, min_lambda, max_lambda, mask_z=mask_z)
         else:
             print("create_psf: Average combining channels")
-            psf_data, psf_stat = manip.collapse_mean_cube(datacontainer, statcube, min_lambda, max_lambda)
+            psf_data, psf_stat = manip.collapse_mean_cube(datacopy, statcopy, min_lambda, max_lambda)
 
+        del datacopy, statcopy
     psf_flux, psf_err_flux, psf_ave_flux = manip.quick_ap_photometry(psf_data, psf_stat, x_pos=x_pos, y_pos=y_pos,
                                                                      radius_pos=radius_pos, inner_rad=inner_rad,
                                                                      outer_rad=outer_rad)
@@ -1185,16 +1195,12 @@ def create_psf(datacontainer,
         psf_norm = 1.
 
     psf_data, psf_stat = psf_data / psf_norm, psf_stat / (psf_norm ** 2.)
-
     print("create_psf: Creating circular mask around the position {}, {}".format(x_pos, y_pos))
-    psf_mask = manip.location(psf_data, x_position=x_pos, y_position=y_pos,
-                              semi_maj=rad_psf, semi_min=rad_psf)
+    psf_mask = manip.location(psf_data, x_position=x_pos, y_position=y_pos, semi_maj=rad_psf, semi_min=rad_psf)
     psf_data[(psf_mask == 0)] = 0.
     psf_stat[(psf_mask == 0)] = 0.
-
     if debug:
         print("create_psf: Creating debug images")
-
 
         plt.figure(1, figsize=(12, 6))
 
@@ -1281,7 +1287,7 @@ def clean_psf(datacontainer,
     datacontainer : IFUcube object
         Data initialized in cubeClass.py
     psf_model : np.array
-        array from running makePsf to be reduced in this function
+        array from running create_psf to be reduced in this function
     x_pos : float
         x-location of the source in pixel
     y_pos : float
@@ -1290,16 +1296,16 @@ def clean_psf(datacontainer,
         3D variance array, can be accessed from datacontainer if an IFUcube object is called
     radius_pos : float
         radius where to perform the aperture photometry
-        to remove the PSF contribution (default is 2.)
+        to remove the PSF contribution (Default is 2.)
     inner_rad : float
-        inner radius of the background region in pixel (default is 10.)
+        inner radius of the background region in pixel (Default is 10.)
     outer_rad : float
-        outer radius of the background region in pixel (default is 15.)
+        outer radius of the background region in pixel (Default is 15.)
     bg_psf : bool
         if True, an additional local background subtraction will be
-        performed around the source (default is True)
+        performed around the source (Default is True)
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (Default False)
 
     Returns
     -------
@@ -1340,7 +1346,6 @@ def clean_psf(datacontainer,
         if flux_source[channel] > 0.5 * (err_flux_source[channel]):
             psf_cube[channel, :, :] -= ((psf_model * flux_source[channel]) + bg_flux_source[channel])
             psf_cube_model[channel, :, :] += ((psf_model * flux_source[channel]) + bg_flux_source[channel])
-
     if debug:
         print("clean_psf: Spectrum of the source")
 

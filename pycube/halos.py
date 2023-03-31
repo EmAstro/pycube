@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import gc
 
-
 from matplotlib.patches import Ellipse
 
 from scipy import ndimage
@@ -41,7 +40,7 @@ def smooth_chicube(datacontainer,
     .. math::
         chi\_cube = \\frac{datacube}{\sqrt{(statcube)}}
 
-    Given that scipy has a hard time to deal with NaNs, NaN
+    Given that scipy has a hard time dealing with NaNs, NaN
     values in the dataCube are converted to zeroes, while the
     NaNs in the statCube are converted to nanmax(statcube).
 
@@ -132,7 +131,7 @@ def halo_mask(chi_cube,
     Parameters
     ----------
     chi_cube : np.array
-        3D X cube output of smoothChiCube. This is constructed
+        3D X cube output of smooth_chicube. This is constructed
         as data/noise (or as smooth(data)/smooth(noise)).
     x_pos, y_pos, z_pos : float
         position from where start to search for the presence
@@ -150,11 +149,10 @@ def halo_mask(chi_cube,
         extended emission. This helps to prevent boundary problems
         and to speed up the algorithm.
     r_connect : int
-        default is r_connect=2. Connecting distance used in the FoF
-        algorithm.
+        Connecting distance used in the FoF algorithm.(Default is 2.)
     threshold : float
         S/N threshold to consider a pixel as part of the extended
-        emission. Default is 2.
+        emission. (Default is 2.)
     threshold_type : str
         'relative': A pixel will be considered as a part of a halo
         if it is above 'threshold' times the sigma of the distribution
@@ -165,15 +163,14 @@ def halo_mask(chi_cube,
         2D mask to remove spatial pixels from the estimate of the halo
         location. If 1 (or True) the spatial pixel will be removed.
     n_sigma_extreme : float, optional
-        parameter for statFullCube and statFullCubeZ:
+        parameter for stat_fullcube and stat_fullcube_z:
         if not None, voxels with values larger than
         sigmaExtreme times the standard deviation of
-        the cube will be masked (default is 5.)
+        the cube will be masked (Default is 5.)
     output : string
         root file name for outputs
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
-
+        runs debug sequence to display output of function (Default is False)
     Returns
     -------
     mask_halo : np.array
@@ -201,7 +198,7 @@ def halo_mask(chi_cube,
 
     # Filling up mask
     chicopy = np.copy(chi_cube)
-    chi_cube_mask = np.zeros_like(chi_cube)
+    chi_cube_mask = np.zeros_like(chi_cube, int)
     channel_array = manip.channel_array(chicopy, 'z')
     z_max, y_max, x_max = np.shape(chi_cube)
     for channel in channel_array:
@@ -245,13 +242,11 @@ def halo_mask(chi_cube,
     if debug:
         print("halo_mask: Saving debug image on {}_voxelDistribution.pdf".format(output))
         print("          in principle the distribution should be gaussian")
-        print("          showing only channel {}".format(np.int(z_max / 2.)))
-
-        manip.nice_plot()
+        print("          showing only channel {}".format(int(z_max / 2.)))
 
         # Populating the histogram
         chi_cube_hist, chi_cube_edges = np.histogram(
-            chicopy[np.int(z_max / 2.), :, :][np.isfinite(chicopy[1, :, :])].flatten(),
+            chicopy[int(z_max / 2.), :, :][np.isfinite(chicopy[1, :, :])].flatten(),
             bins="fd", density=True)
         # fitting of the histogram
         chi_cube_edges_bin = np.nanmedian(chi_cube_edges - np.roll(chi_cube_edges, 1))
@@ -308,13 +303,16 @@ def halo_mask(chi_cube,
         del gauss_covar
 
     # Searching for the Max value from which to start to look for connections
+
     print("halo_mask: searching for extended emission")
     print("          starting from from (x,y,z)=({:0.2f},{:0.3f},{:0.0f})".format(float(x_pos), float(y_pos),
                                                                                   float(z_pos)))
     # Check small cube
-    small_chicopy = chicopy[int(z_pos - 3. * rad_bad_pix):int(z_pos + 3. * rad_bad_pix),
-                            int(y_pos - 3. * rad_bad_pix):int(y_pos + 3. * rad_bad_pix),
-                            int(x_pos - 3. * rad_bad_pix):int(x_pos + 3. * rad_bad_pix)]
+    chi_range = 3. * rad_bad_pix
+    small_chicopy = chicopy[int(z_pos - chi_range):int(z_pos + chi_range),
+                    int(y_pos - chi_range):int(y_pos + chi_range),
+                    int(x_pos - chi_range):int(x_pos + chi_range)]
+
     if np.nansum(np.isfinite(small_chicopy)) > 0:
         max_s_chicopy = np.nanmax(small_chicopy)
         # Selecting the closest value
@@ -330,7 +328,7 @@ def halo_mask(chi_cube,
     else:
         max_s_chicopy = threshold
         z_max_chi, y_max_chi, x_max_chi = z_pos, y_pos, x_pos
-    del small_chicopy
+    del small_chicopy, chi_range
 
     print("halo_mask: starting to fill the halo mask")
     # this mask is equal to 1 if the pixel is considered part of the halo
@@ -349,7 +347,7 @@ def halo_mask(chi_cube,
     mask_halo[z_min_seed:z_max_seed, y_min_seed:y_max_seed, x_min_seed:x_max_seed] = 1
     chi_cube_mask[z_min_seed:z_max_seed, y_min_seed:y_max_seed, x_min_seed:x_max_seed] = 0
 
-    # here the code start to propagate the mask in the neighbor pixels
+    # here the code starts to propagate the mask in the neighbor pixels
     connected_pix = 0
     connected_pix_new = int(np.nansum(mask_halo))
 
@@ -358,19 +356,18 @@ def halo_mask(chi_cube,
         # create a new mask around the identified voxels
         temp_halo_mask = np.copy(mask_halo)
         z_mask, y_mask, x_mask = np.where(temp_halo_mask == 1)
-        for zMaskTemp, yMaskTemp, xMaskTemp in zip(z_mask, y_mask, x_mask):
-            z_mask_min, z_mask_max = int(zMaskTemp - r_connect), int(zMaskTemp + r_connect)
-            y_mask_min, y_mask_max = int(yMaskTemp - r_connect), int(yMaskTemp + r_connect)
-            x_mask_min, x_mask_max = int(xMaskTemp - r_connect), int(xMaskTemp + r_connect)
+        for z_val, y_val, x_val in zip(z_mask, y_mask, x_mask):
+            z_mask_min, z_mask_max = int(z_val - r_connect), int(z_val + r_connect)
+            y_mask_min, y_mask_max = int(y_val - r_connect), int(y_val + r_connect)
+            x_mask_min, x_mask_max = int(x_val - r_connect), int(x_val + r_connect)
             temp_halo_mask[z_mask_min:z_mask_max, y_mask_min:y_mask_max, x_mask_min:x_mask_max] = 1
-
         # check that voxels in temp_mask_halo are above the threshold
         new_chicopy = np.copy(chi_cube)
         new_chicopy[~np.isfinite(new_chicopy)] = 0.
         new_chicopy[(chi_cube_mask == 1)] = 0.
         new_chicopy *= temp_halo_mask.astype(float)
 
-        for channel in np.arange(0, z_max):
+        for channel in channel_array:
             mask_halo[channel, :, :][new_chicopy[channel, :, :] > threshold_halo[channel]] = 1
         connected_pix_new = int(np.nansum(mask_halo))
     # Removing seed
@@ -383,20 +380,18 @@ def halo_mask(chi_cube,
         print("          The location of this voxel is marked with a red circle")
         print("          The position of the quasar is in blue")
 
-        #manip.nice_plot()
-
         mask_halo_2D, mask_halo_min_z, mask_halo_max_z = spectral_mask_halo(mask_halo)
-
-        plt.figure(1, figsize=(12, 6))
 
         ax_image = plt.subplot2grid((1, 2), (0, 0), colspan=1)
         ax_mask = plt.subplot2grid((1, 2), (0, 1), colspan=1)
+
 
         x_plot_min, x_plot_max = int(x_pos - rad_max), int(x_pos + rad_max)
         y_plot_min, y_plot_max = int(y_pos - rad_max), int(y_pos + rad_max)
         std_plot = np.nanstd(chi_cube[z_max_chi,
                              y_plot_min:x_plot_max,
                              x_plot_min:y_plot_max])
+
         # Plotting field image
         ax_image.imshow(chi_cube[z_max_chi, :, :],
                         cmap="Greys", origin="lower",
@@ -507,9 +502,13 @@ def spectral_mask_halo(mask_halo):
     return mask_halo_2D, mask_halo_min_z, mask_halo_max_z
 
 
-def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
-                    min_channel=None, max_channel=None,
-                    debug=False, show_debug=False):
+def clean_mask_halo(mask_halo,
+                    delta_z_min=2,
+                    min_vox=100,
+                    min_channel=None,
+                    max_channel=None,
+                    debug=False,
+                    show_debug=False):
     """
     Given the halo mask, the macro performs some quality
     check:
@@ -526,13 +525,13 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
         as part of the halo
     min_vox : int, optional
         voxel detection threshold value. If the number of voxels is less than this parameter,
-        the halo is not to be detected (default 100)
+        the halo is not to be detected (Default is 100)
     min_channel, max_channel : np.array
         only voxels between channelMin and max_channel in the
         spectral direction will be considered in the creation
         of the cleanMask
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (Default is False)
 
     Returns
     -------
@@ -542,7 +541,7 @@ def clean_mask_halo(mask_halo, delta_z_min=2, min_vox=100,
 
     print("mask_halo_cleaned: cleaning halo mask")
 
-    if np.nansum(mask_halo) < np.int(min_vox / 2.):
+    if np.nansum(mask_halo) < int(min_vox / 2.):
         print("mask_halo_cleaned: not enough voxels in the mask")
         return np.zeros_like(mask_halo, int)
 
@@ -651,9 +650,9 @@ def make_moments(datacontainer,
         number of sigma after which the smoothing kernel
         is truncated
     debug, show_debug : boolean, optional
-        runs debug sequence to display output of function (default False)
+        runs debug sequence to display output of function (Default is False)
     debug_cmap : string, optional
-        color map for debug output (default 'Greys')
+        color map for debug output (Default is 'Greys')
     output : str, optional
         Output name of saved figure if running show_debug
 
@@ -710,7 +709,7 @@ def make_moments(datacontainer,
                                                                          mask_xy=mask_halo_2D)
 
     # removing voxels outside the halo
-    tmp_datacopy[(mask_halo < 1)] = np.float(0.)
+    tmp_datacopy[(mask_halo < 1)] = float(0.)
 
     # Defining wavelength range
     z_max, y_max, x_max = np.shape(psf_data)
@@ -747,8 +746,6 @@ def make_moments(datacontainer,
         print("make_moments: showing debug image:")
         print("             spectrum and optimally extracted spectrum")
 
-        #manip.nice_plot()
-
         # Setting limits for halo image
         channel_y = np.arange(0, y_max, 1, int)
         channel_x = np.arange(0, x_max, 1, int)
@@ -766,12 +763,13 @@ def make_moments(datacontainer,
                        cmap=debug_cmap, origin="lower")
         ax_imag.set_xlim(left=min_x_mask, right=max_x_mask)
         ax_imag.set_ylim(bottom=min_y_mask, top=max_y_mask)
-        ax_imag.set_xlabel(r"X [Pixels]", size=30)
-        ax_imag.set_ylabel(r"Y [Pixels]", size=30)
+        ax_imag.set_xlabel(r"X [Pixels]", size=25)
+        ax_imag.set_ylabel(r"Y [Pixels]", size=25)
 
         ax_spec.plot(wave, flux_halo, color='black', zorder=3, label='Total')
         ax_spec.plot(wave, flux_halo_smooth, color='gray', zorder=3, label='Smooth')
         ax_spec.plot(wave, optimal_flux_halo, color='red', zorder=3, label='Opt. Ex.')
+        ax_spec.plot(wave, err_flux_halo, color='gray', alpha=0.5, zorder=2, label='Error')
         ax_spec.plot(wave, err_flux_halo, color='gray', alpha=0.5, zorder=2, label='Error')
         ax_spec.legend(loc='upper left', ncol=2, fontsize=15)
         ax_spec.set_xlabel(r"Wavelength", size=30)
@@ -799,9 +797,9 @@ def make_moments(datacontainer,
         ax_mom0.set_xlim(left=min_x_mask, right=max_x_mask)
         ax_mom0.set_ylim(bottom=min_y_mask, top=max_y_mask)
         ax_mom0.title.set_text("Flux")
-        ax_mom0.set_xlabel(r"X [Pixels]", size=30)
-        ax_mom0.set_ylabel(r"Y [Pixels]", size=30)
-        cb_mom0 = plt.colorbar(img_mom0, ax=ax_mom0, shrink=0.5)
+        ax_mom0.set_xlabel(r"X [Pixels]", size=25)
+        ax_mom0.set_ylabel(r"Y [Pixels]", size=25)
+        cb_mom0 = plt.colorbar(img_mom0, ax=ax_mom0, shrink=0.8)
 
         img_mom1 = ax_mom1.imshow(mom1,
                                   cmap=debug_cmap, origin="lower",
@@ -810,9 +808,9 @@ def make_moments(datacontainer,
         ax_mom1.set_xlim(left=min_x_mask, right=max_x_mask)
         ax_mom1.set_ylim(bottom=min_y_mask, top=max_y_mask)
         ax_mom1.title.set_text("Velocity")
-        ax_mom1.set_xlabel(r"X [Pixels]", size=30)
-        ax_mom1.set_ylabel(r"Y [Pixels]", size=30)
-        cb_mom1 = plt.colorbar(img_mom1, ax=ax_mom1, shrink=0.5)
+        ax_mom1.set_xlabel(r"X [Pixels]", size=25)
+        ax_mom1.set_ylabel(r"Y [Pixels]", size=25)
+        cb_mom1 = plt.colorbar(img_mom1, ax=ax_mom1, shrink=0.8)
 
         img_mom2 = ax_mom2.imshow(mom2,
                                   cmap=debug_cmap, origin="lower",
@@ -823,7 +821,7 @@ def make_moments(datacontainer,
         ax_mom2.title.set_text('Velocity Disp.')
         ax_mom2.set_xlabel(r"X [Pixels]", size=30)
         ax_mom2.set_ylabel(r"Y [Pixels]", size=30)
-        cb_mom2 = plt.colorbar(img_mom2, ax=ax_mom2, shrink=0.5)
+        cb_mom2 = plt.colorbar(img_mom2, ax=ax_mom2, shrink=0.8)
 
         plt.tight_layout()
         if show_debug:
@@ -844,7 +842,9 @@ def make_moments(datacontainer,
     return mom0, mom1, mom2, central_wave
 
 
-def maxExtent(mask_halo_2D, x_pos=None, y_pos=None):
+def maxExtent(mask_halo_2D,
+              x_pos=None,
+              y_pos=None):
     """Given a 2D mask halo, the macro calculates
     the maximum extend of the halo in the spatial
     direction and the maximum distance from x_pos,

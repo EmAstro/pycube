@@ -71,7 +71,7 @@ class IfuCube:
             stat (variance) row of hdul
         """
 
-        self.hdul = fits.open(self.image, memmap=True)
+        self.hdul = fits.open(self.image,  memmap=True)
         self.primary = self.hdul[self.instrument.primary_extension]
         self.data = self.hdul[self.instrument.data_extension]
         self.stat = self.hdul[self.instrument.error_extension]
