@@ -296,7 +296,7 @@ def detect(zap,cat,expected_wave,dir):
         t = np.trim_zeros(wave_edges_removed[i])
         t = np.asarray(t)
         for j in range(len(t)):
-            if 7.75125e-7 < t[j] < 9.200e-7:
+            if 7.500e-7 <= t[j] <= 9.350e-7:
                 m = m + 1
             else:
                 continue
@@ -398,6 +398,9 @@ def detect(zap,cat,expected_wave,dir):
     channel_range_500=np.asarray([np.int64((lbda_range_500[0] - 7500) / 1.25)+1, np.int64((lbda_range_500[1] - 7500) / 1.25) + 1])
     channel_range_1000=np.asarray([np.int64((lbda_range_1000[0] - 7500) / 1.25)+1, np.int64((lbda_range_1000[1] - 7500) / 1.25) + 1])
 
+    print(f"lbda_range_100: {lbda_range_100}")
+    print(f"Channel 1000: {channel_range_100}")
+
 
     print("")
     print("")
@@ -409,12 +412,20 @@ def detect(zap,cat,expected_wave,dir):
         shutil.rmtree(lsdcat_images_directory_path)
         os.mkdir(lsdcat_images_directory_path)
 
-    lsdcat_original_spectra_directory_path = os.path.join(lsdcat_directory_path, "ORIGINAL_SPECTRA")
+    lsdcat_original_spectra_directory_path = os.path.join(lsdcat_directory_path, "ORIGINAL_SPECTRA_IMAGES")
     if not os.path.exists(lsdcat_original_spectra_directory_path):
         os.mkdir(lsdcat_original_spectra_directory_path)
     else:
         shutil.rmtree(lsdcat_original_spectra_directory_path)
         os.mkdir(lsdcat_original_spectra_directory_path)
+
+
+    lsdcat_spectra_csv_file_directory_path = os.path.join(lsdcat_directory_path, "SPECTRA_CSV_FILE")
+    if not os.path.exists(lsdcat_spectra_csv_file_directory_path):
+        os.mkdir(lsdcat_spectra_csv_file_directory_path)
+    else:
+        shutil.rmtree(lsdcat_spectra_csv_file_directory_path)
+        os.mkdir(lsdcat_spectra_csv_file_directory_path)
 
 
     flux_1=[]
@@ -650,6 +661,11 @@ def detect(zap,cat,expected_wave,dir):
             spec_var=Spectrum(data=err, wave=wave_spec, unit=u.Unit(str(f['DATA'].header['BUNIT'])))
 
 
+
+            np.savetxt(lsdcat_spectra_csv_file_directory_path + f"/spec_{c}.csv", np.array([spec.wave.coord(unit=u.angstrom), spec.data, spec_var.data]).T)
+
+
+
             print(f"{ra_possible_source[i]} : {dec_possible_source[i]}")
             fig,((ax17),(ax18))=plt.subplots(2, 1, figsize=(8, 8), tight_layout=True)
             circleObj = plt.Circle((ra_img_pix, dec_img_pix), 5, color='DarkBlue', fill=False)
@@ -728,7 +744,10 @@ def detect(zap,cat,expected_wave,dir):
             ax14.add_patch(circle14)
             ax15.add_patch(circle15)
 
-
+            ax17.axvline(x=expected_wave,ls='--',color='lightgrey')
+            ax18.axvline(x=expected_wave, ls='--', color='lightgrey')
+            ax19.axvline(x=expected_wave, ls='--', color='lightgrey')
+            ax20.axvline(x=expected_wave, ls='--', color='lightgrey')
 
 
 
