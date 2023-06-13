@@ -849,4 +849,5 @@ def detect(zap,cat,expected_wave,dir):
     print(f"{np.amin(flux_3)}, {np.amax(flux_3)}")
 
 
+<<<<<<< HEAD
     return wavelengths, wave_count_2, flux_1, flux_2, flux_3
