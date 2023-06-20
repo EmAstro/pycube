@@ -250,9 +250,9 @@ def detect(zap,cat,expected_wave,dir):
     print("CREATING LSDcat CATALOGUE AND SAVING IN LSDcat DIRECTORY")
     name_of_catalogue = os.path.join(lsdcat_directory_path, "LSDcat_Catalog.txt")
     file_1 = open(name_of_catalogue, "w+")
-    file_1.write("ID, ra, dec, wavelengths\n")
+    file_1.write("No.) ID, ra, dec, wavelengths\n")
     for i in range(len(ra_edges_removed)):
-        file_1.write(f"{i+1},    {n_edges_removed[i]},   {ra_edges_removed[i]}, {dec_edges_removed[i]}, {np.trim_zeros(wave_edges_removed[i])}\n")
+        file_1.write(f"{i+1}) {n_edges_removed[i]}, {ra_edges_removed[i]}, {dec_edges_removed[i]}, {(np.trim_zeros(wave_edges_removed[i])) * 1e10}\n\n")
     file_1.close()
     print("CATALOGUE CREATED\n")
 
@@ -261,7 +261,7 @@ def detect(zap,cat,expected_wave,dir):
 
     #CREATING DS9 REGION FILE
     print("CREATING DS9 REGION FILE")
-    name_of_region_file = os.path.join(lsdcat_directory_path, "LSDcat_region_file.reg")
+    name_of_region_file = os.path.join(lsdcat_directory_path, "LSDcat_sources_region_file.reg")
     file_2 = open(name_of_region_file, "w+")
     file_2.write("#Region file format: DS9 version 4.1 "
                "\nglobal color=blue dashlist=8 3 width=1 font='helvetica 10 normal roman' select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1 "
@@ -296,7 +296,7 @@ def detect(zap,cat,expected_wave,dir):
         t = np.trim_zeros(wave_edges_removed[i])
         t = np.asarray(t)
         for j in range(len(t)):
-            if 7.500e-7 <= t[j] <= 9.350e-7:
+            if (1215.67e-10 * (1 + 6.40)) < t[j] < (1215.67e-10 * (1 + 6.45)):
                 m = m + 1
             else:
                 continue
@@ -662,7 +662,7 @@ def detect(zap,cat,expected_wave,dir):
 
 
 
-            np.savetxt(lsdcat_spectra_csv_file_directory_path + f"/spec_{c}.csv", np.array([spec.wave.coord(unit=u.angstrom), spec.data, spec_var.data]).T)
+            np.savetxt(lsdcat_spectra_csv_file_directory_path + f"/spec_{c}.csv", np.array([spec.wave.coord(unit=u.angstrom), spec.data, spec_var.data]),delimiter=',')
 
 
 
@@ -789,7 +789,7 @@ def detect(zap,cat,expected_wave,dir):
     file_5 = open(name_of_catalogue, "w+")
     file_5.write("ID, ra, dec, wavelengths\n")
     for i in range(len(ra_potential_sources)):
-        file_5.write(f"{i+1}, {ra_potential_sources[i]}, {dec_potential_sources[i]}, {wave_potential_sources[i]}\n")
+        file_5.write(f"{i+1}, {ra_potential_sources[i]}, {dec_potential_sources[i]}, {(wave_potential_sources[i]) * 1e10}\n\n")
     file_5.close()
     print("CATALOGUE CREATED\n")
 
@@ -830,7 +830,7 @@ def detect(zap,cat,expected_wave,dir):
     file_7.write("Wavelength : Count\n")
     for i in range(len(wave_count)):
         if wave_count[i] !=0.0:
-            file_7.write(f"{wavelengths[i]} : {wave_count[i]}\n")
+            file_7.write(f"{wavelengths[i] * 1e10} : {wave_count[i]}\n")
         else:
             continue
     file_7.close()
