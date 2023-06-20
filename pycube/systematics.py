@@ -59,7 +59,7 @@ else:
 print("LSDcat DIRECTORY CREATED\n")
 
 
-zap ="/home/sai/Desktop/P183p05_DATACUBE_ZAP.fits"
+zap ="/home/sai/Desktop/P183p05/P183p05_DATACUBE_ZAP.fits"
 
 cube = Cube(zap)
 f = fits.open(zap)
@@ -82,13 +82,13 @@ std_total_1000=[]
 
 
 def limit(x,sigma):
-    median_x = np.median(np.asarray(x)) #x is variance
-    median_x = median_x * 1e-20
+    median_x = np.median(np.asarray(x)) * 1e-40 #x is variance
+    median_x = np.sqrt(median_x)
     print(f"median_average = {median_x}")
     product = median_x * sigma
     area = np.pi * 1.55 * 1.55
 
-    flux_limit = (product * 1 * np.sqrt(area))  #flux_limit at S/N = 11
+    flux_limit = (product * 11 * np.sqrt(area))  #flux_limit at S/N = 11
     lum_dist = cosmos.luminosity_distance(6.404)
     luminosity_limit = flux_limit * 4 * np.pi * ((lum_dist.to(u.cm))**2)
     luminosity_limit = luminosity_limit/(u.cm**2)
@@ -203,7 +203,7 @@ def collapseCube(dataCube,statCube=None,minChannel=None,maxChannel=None,maskZ=No
 
     return collapsedDataImage, collapsedStatImage
 
-n = 1
+n = 10
 
 f_limits_var = np.zeros((4,n))
 l_limits_var = np.zeros((4,n))
@@ -404,32 +404,33 @@ for z in range(n):
 
     bin = np.linspace(-10, 10, 15)
     x = np.linspace(-10, 10, 500)
-    fig, ax = plt.subplots(1, 4, figsize=(15, 15), tight_layout=True)
+    fig, ((ax1,ax2),(ax3,ax4)) = plt.subplots(2, 2, figsize=(15, 15), tight_layout=True)
 
-
-    ax[0].hist(ratio_100, bins=bin, density=True, alpha=0.6)
+    c = 'darkmagenta'
+    fs=30
+    ax1.hist(ratio_100, bins=bin, density=True, alpha=0.6)
     p_1 = norm.pdf(x, mu_100, sigma_100)
-    ax[0].plot(x, p_1, 'k')
-    ax[0].set_title(f"100kms-1 \n $\mu$ = {np.round(mu_100, decimals=2)} $\sigma$ = {np.round(sigma_100, decimals=2)}")
+    ax1.plot(x, p_1, 'k',color=c)
+    ax1.set_title(f"100kms-1 \n $\mu$ = {np.round(mu_100, decimals=2)} $\sigma$ = {np.round(sigma_100, decimals=2)}",fontsize=fs)
 
-    ax[1].hist(ratio_200, bins=bin, density=True, alpha=0.6)
+    ax2.hist(ratio_200, bins=bin, density=True, alpha=0.6)
     p_2 = norm.pdf(x, mu_200, sigma_200)
-    ax[1].plot(x, p_2, 'k')
-    ax[1].set_title(f"200kms-1 \n $\mu$ = {np.round(mu_200, decimals=2)} $\sigma$ = {np.round(sigma_200, decimals=2)}")
+    ax2.plot(x, p_2, 'k',color=c)
+    ax2.set_title(f"200kms-1 \n $\mu$ = {np.round(mu_200, decimals=2)} $\sigma$ = {np.round(sigma_200, decimals=2)}",fontsize=fs)
 
-    ax[2].hist(ratio_500, bins=bin, density=True, alpha=0.6)
+    ax3.hist(ratio_500, bins=bin, density=True, alpha=0.6)
     p_3 = norm.pdf(x, mu_500, sigma_500)
-    ax[2].plot(x, p_3, 'k')
-    ax[2].set_title(f"500kms-1 \n $\mu$ = {np.round(mu_500, decimals=2)} $\sigma$ = {np.round(sigma_500, decimals=2)}")
+    ax3.plot(x, p_3, 'k',color=c)
+    ax3.set_title(f"500kms-1 \n $\mu$ = {np.round(mu_500, decimals=2)} $\sigma$ = {np.round(sigma_500, decimals=2)}",fontsize=fs)
 
-    ax[3].hist(ratio_1000, bins=bin, density=True, alpha=0.6)
+    ax4.hist(ratio_1000, bins=bin, density=True, alpha=0.6)
     p_4 = norm.pdf(x, mu_1000, sigma_1000)
-    ax[3].plot(x, p_4, 'k')
-    ax[3].set_title(
-        f"1000kms-1 \n $\mu$ = {np.round(mu_1000, decimals=2)} $\sigma$ = {np.round(sigma_1000, decimals=2)}")
+    ax4.plot(x, p_4, 'k',color=c)
+    ax4.set_title(
+        f"1000kms-1 \n $\mu$ = {np.round(mu_1000, decimals=2)} $\sigma$ = {np.round(sigma_1000, decimals=2)}",fontsize=fs)
 
     #plt.show()
-    plt.savefig(f"{histogram_and_fit_directory_path}/sir_code")
+    plt.savefig(f"{histogram_and_fit_directory_path}/sir_code_{z+1}")
     plt.close('all')
 
 
@@ -459,10 +460,10 @@ for z in range(n):
     print(np.median(var_100))
 
 
-    f_100, l_100, s_100 = limit(img_narrow_band_100.var,sigma_100)
-    f_200, l_200, s_200 = limit(img_narrow_band_200.var, sigma_200)
-    f_500, l_500, s_500 = limit(img_narrow_band_500.var, sigma_500)
-    f_1000, l_1000, s_1000 = limit(img_narrow_band_1000.var, sigma_1000)
+    f_100, l_100, s_100 = limit(var_100,sigma_100)
+    f_200, l_200, s_200 = limit(var_200, sigma_200)
+    f_500, l_500, s_500 = limit(var_500, sigma_500)
+    f_1000, l_1000, s_1000 = limit(var_1000, sigma_1000)
 
     print(f"hi: {z}")
 
@@ -483,27 +484,6 @@ for z in range(n):
 
     del f_100, l_100, s_100, f_200, l_200, s_200, f_500, l_500, s_500, f_1000, l_1000, s_1000
 
-    f_100, l_100, s_100 = limit(err_100, sigma_100)
-    f_200, l_200, s_200 = limit(err_200, sigma_200)
-    f_500, l_500, s_500 = limit(err_500, sigma_500)
-    f_1000, l_1000, s_1000 = limit(err_1000, sigma_1000)
-
-    f_limits_err[0][z] = f_100
-    f_limits_err[1][z] = f_200
-    f_limits_err[2][z] = f_500
-    f_limits_err[3][z] = f_1000
-
-    l_limits_err[0][z] = l_100
-    l_limits_err[1][z] = l_200
-    l_limits_err[2][z] = l_500
-    l_limits_err[3][z] = l_1000
-
-    s_limits_err[0][z] = s_100
-    s_limits_err[1][z] = s_200
-    s_limits_err[2][z] = s_500
-    s_limits_err[3][z] = s_1000
-
-    del f_100, l_100, s_100, f_200, l_200, s_200, f_500, l_500, s_500, f_1000, l_1000, s_1000
 
 
 
