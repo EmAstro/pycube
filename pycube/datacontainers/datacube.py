@@ -1,3 +1,9 @@
+"""
+Class to deal with datacube objects
+
+.. include:: ../../docs/source/include/links.rst
+"""
+
 import numpy as np
 from pycube import msgs
 from pycube.ancillary import units
