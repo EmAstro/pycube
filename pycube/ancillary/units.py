@@ -7,6 +7,7 @@ Module to deal with different units in a fits file
 import astropy.units as u
 import numpy as np
 
+# ToDo this needs to be updated to be less dependent on the way the units are written.
 STRING_TO_ASTROPY_QUANTITY = {
     'um':
         {'quantity': 1.*u.micron,
