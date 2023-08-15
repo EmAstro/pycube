@@ -1,10 +1,23 @@
 # Required Packages for pycube
-astropy>=4.2
-matplotlib>=3.3
-numpy>=1.20
-scipy>=1.7
+# To verify package status
+# conda list "^python$|astropy$|astroquery$|extinction$|matplotlib$|numpy$|photutils$|reproject$|scipy$|sep$"
+astropy>=5.3
 astroquery>=0.4
-photutils>=1.4
 extinction>=0.4
+matplotlib>=3.7
+numpy>=1.25
+photutils>=1.8
+reproject>=0.11
+scipy>=1.11
 sep>=1.2
+# to update:
+# conda update -c conda-forge astropy
+# conda update -c conda-forge astroquery
+# conda update -c conda-forge extinction
+# conda update -c conda-forge matplotlib
+# conda update -c conda-forge numpy
+# conda update -c conda-forge photutils
+# conda update -c conda-forge reproject
+# conda update -c conda-forge scipy
+# conda update -c conda-forge sep
 

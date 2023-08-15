@@ -19,13 +19,14 @@ python and dependencies
 pycube runs with `python <http://www.python.org/>`_ 3.9 and with the following dependencies:
 
 * `python <http://www.python.org/>`_ -- version 3.9
-* `astropy <https://www.astropy.org/>`_ -- version 4.2 or later
-* `matplotlib <https://matplotlib.org/>`_ -- version 3.3 or later
-* `numpy <http://www.numpy.org/>`_ -- version 1.20 or later
-* `scipy <https://docs.scipy.org/doc/>`_ -- version 1.7 or later
+* `astropy <https://www.astropy.org/>`_ -- version 5.3 or later
 * `astroquery <https://astroquery.readthedocs.io/en/latest/>`_ -- version 0.4 or later
-* `photutils <https://photutils.readthedocs.io/en/stable/>`_ -- version 1.4 or later
 * `extinction <https://extinction.readthedocs.io/en/latest/>`_ -- version 0.4 or later
+* `matplotlib <https://matplotlib.org/>`_ -- version 3.7 or later
+* `numpy <http://www.numpy.org/>`_ -- version 1.25 or later
+* `photutils <https://photutils.readthedocs.io/en/stable/>`_ -- version 1.8 or later
+* `reproject <https://reproject.readthedocs.io/en/stable/>`_ -- version 0.11 or later
+* `scipy <https://docs.scipy.org/doc/>`_ -- version 1.7 or later
 * `sep <https://sep.readthedocs.io/en/v1.1.x/>`_ -- version 1.2 or later
 
 If you are using Anaconda, you can check the presence of these packages with::

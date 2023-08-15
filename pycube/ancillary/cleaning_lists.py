@@ -1,6 +1,7 @@
 """ Module that performs some lists massaging to work well with arg.parser
-"""
 
+.. include:: ../../docs/source/include/links.rst
+"""
 
 import numpy as np
 from astropy.table import MaskedColumn
